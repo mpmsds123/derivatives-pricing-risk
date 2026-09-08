@@ -7,10 +7,10 @@
 This module builds it out of the machinery that already values the book, so the
 risk numbers and the attribution numbers come from the same pricer:
 
-    portfolio.price_portfolio  -- the eight legs, valued leg by leg
-    surface.VolSurface         -- SABR vols, alpha re-solved per (T, F, lambda)
-    pricing.bs_price           -- Black-Scholes on each leg
-    rates.DiscountCurve        -- the bootstrapped SOFR curve plus level overlay
+    attribution/src/portfolio.py  price_portfolio -- the eight legs, leg by leg
+    attribution/src/surface.py    VolSurface -- SABR vols, alpha re-solved
+    attribution/src/pricing.py    bs_price -- Black-Scholes on each leg
+    attribution/src/rates.py      DiscountCurve -- SOFR curve plus level overlay
 
 The shock is applied to the STATE, not to the value:
 
@@ -30,9 +30,9 @@ oversights:
     scenario's `horizon_days` is metadata describing how long the move took in
     the world -- it does not enter the repricing.
   * The vol shock is a parallel level shift, which is the model's single vol
-    risk factor. Section 4.1 of docs/MODEL_VALIDATION.md quantifies why that is
-    the binding limitation on this book.
-  * `surface.vol` clips the shocked vol into [vol_floor, vol_cap] from CONFIG.
+    risk factor. Section 4.1 of ../docs/MODEL_VALIDATION.md quantifies why
+    that is the binding limitation on this book.
+  * `attribution/src/surface.py`'s `vol` clips the shocked vol into [vol_floor, vol_cap] from CONFIG.
     A large negative vol shock therefore saturates at the 3% floor rather than
     going through it, which makes deep vol-down cells less severe than an
     unclipped model would report.
@@ -45,10 +45,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from .config import CONFIG
-from .portfolio import MarketState, price_portfolio
-from .rates import DiscountCurve
-from .surface import VolSurface
+from src.config import CONFIG
+from src.portfolio import MarketState, price_portfolio
+from src.rates import DiscountCurve
+from src.surface import VolSurface
 
 _B = CONFIG["buckets"]
 

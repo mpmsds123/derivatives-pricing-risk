@@ -1,13 +1,13 @@
-"""Project 3 (risk module) -- VaR, ES and stress testing for the option book.
+"""Risk module -- VaR, ES and stress testing for the option book.
 
-    python run_risk.py                  # full risk run (VaR + backtest + stress)
-    python run_risk.py --stage var      # estimators, backtest and sensitivity only
-    python run_risk.py --live           # re-pull yfinance instead of using the cache
+    python risk/run_risk.py                  # full risk run (VaR + backtest + stress)
+    python risk/run_risk.py --stage var      # estimators, backtest and sensitivity only
+    python risk/run_risk.py --live           # re-pull yfinance instead of the cache
 
-Consumes the attribution pipeline's outputs (`output/daily_attribution.csv` and
-`output/exposures_daily.csv`), so `run.py` must have been run first. The
-full-revaluation estimator and every stress scenario reprice the book through
-`src/revalue.py` rather than Taylor-expanding it.
+Consumes the attribution pipeline's outputs (`attribution/output/`), so
+`attribution/run.py` must have been run first. Results are written to
+`risk/output/`. The full-revaluation estimator and every stress scenario reprice
+the book through `revalue.py` rather than Taylor-expanding it.
 """
 from __future__ import annotations
 
@@ -18,24 +18,31 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parent
+# risk/ holds the estimators; the pricer and the market data live in
+# attribution/. Both go on the path so the risk module can drive the same
+# pricing code the attribution engine uses, without duplicating it.
+ROOT = Path(__file__).resolve().parent          # <repo>/risk
+REPO = ROOT.parent
+ATTR = REPO / "attribution"
+sys.path.insert(0, str(ATTR))
 sys.path.insert(0, str(ROOT))
 
 from data.loader import load_market_data, realized_vol                # noqa: E402
+from revalue import build_revaluer                                    # noqa: E402
 from src.config import CONFIG                                         # noqa: E402
 from src.diagnostics import GRID, INK, INK_MUTED, SURFACE             # noqa: E402
 from src.portfolio import (MarketState, aggregate, load_portfolio,    # noqa: E402
                            value_portfolio)
 from src.rates import build_level_overlay, load_curve                 # noqa: E402
-from src.revalue import build_revaluer                                # noqa: E402
-from src.stress import (HISTORICAL, HYPOTHETICAL, reverse_stress,     # noqa: E402
-                        run_scenarios, stress_grid)
 from src.surface import build_surface, load_sabr_params               # noqa: E402
-from src.var import (backtest_var, filtered_historical_var,           # noqa: E402
-                     full_reval_var, historical_var, parametric_var)
+from stress import (HISTORICAL, HYPOTHETICAL, reverse_stress,         # noqa: E402
+                    run_scenarios, stress_grid)
+from var import (backtest_var, filtered_historical_var,               # noqa: E402
+                 full_reval_var, historical_var, parametric_var)
 
-OUT = ROOT / CONFIG["output"]["dir"]
-DATA = ROOT / "data"
+OUT = ROOT / CONFIG["output"]["dir"]            # risk/output -- results
+ATTR_OUT = ATTR / CONFIG["output"]["dir"]       # attribution/output -- inputs
+DATA = ATTR / "data"
 CAL_DATE = "2026-08-07"          # Project 1's calibration date; lambda = 1 here
 BASE_KAPPA = float(CONFIG["experiments"]["kappa_grid"][0])
 
@@ -88,10 +95,12 @@ def _money(x: float) -> str:
 
 def load_inputs(live: bool = False) -> dict:
     """Attribution outputs, the market state path, and the repricing callback."""
-    att_p, exp_p = OUT / "daily_attribution.csv", OUT / "exposures_daily.csv"
+    att_p, exp_p = (ATTR_OUT / "daily_attribution.csv",
+                    ATTR_OUT / "exposures_daily.csv")
     for p in (att_p, exp_p):
         if not p.exists():
-            raise SystemExit(f"missing {p.relative_to(ROOT)} -- run `python run.py` first")
+            raise SystemExit(f"missing {p.relative_to(REPO)} -- "
+                             "run `python attribution/run.py` first")
 
     att = pd.read_csv(att_p, index_col=0, parse_dates=True)
     exp = pd.read_csv(exp_p, index_col=0, parse_dates=True)
@@ -108,10 +117,10 @@ def load_inputs(live: bool = False) -> dict:
     if drift > 1e-6:
         raise SystemExit(f"alignment: exposures/attribution book delta differs by {drift:.3e}")
 
-    md = load_market_data(ROOT, live=live)
+    md = load_market_data(ATTR, live=live)
     win = md.window
-    curve = load_curve(ROOT / CONFIG["upstream"]["sofr_curve"])
-    ts = load_sabr_params(ROOT / CONFIG["upstream"]["sabr_params"])
+    curve = load_curve(ATTR / CONFIG["upstream"]["sofr_curve"])
+    ts = load_sabr_params(ATTR / CONFIG["upstream"]["sabr_params"])
     overlay = build_level_overlay(md.rate_level, curve.asof)
 
     rv_full = realized_vol(md.spot, "ewma")
@@ -216,7 +225,7 @@ def stage_var(ctx: dict) -> dict:
     worst = max(gaps.values(), key=lambda t: abs(t[2]))
     wg = worst[2]
     print(f"  LARGEST PARAMETRIC vs FULL-REVALUATION GAP: {wg:+.1%}")
-    # The escalation threshold in the monitoring plan (MODEL_VALIDATION.md 6) is
+    # The escalation threshold in the monitoring plan (docs/MODEL_VALIDATION.md 6) is
     # a 50% divergence. The verdict is read off the number rather than asserted,
     # because on this book at this snapshot the number can come out either way.
     if abs(wg) >= 0.50:
@@ -247,7 +256,7 @@ def stage_var(ctx: dict) -> dict:
           + ", ".join(f"{r.method} {r.n_eff_tail:g}" for r in tails.itertuples()))
     print("  With 255 daily moves, a 99% ES is an average over two or three points.")
     print("  It is reported because it is required, and it is an order-of-magnitude")
-    print("  statement only (MODEL_VALIDATION.md 3).")
+    print("  statement only (docs/MODEL_VALIDATION.md 3).")
 
     return {"base": base}
 
@@ -662,7 +671,7 @@ def main() -> None:
 
     if args.stage == "var":
         stage_sensitivity(ctx)
-        print(f"\n  wrote to output/: var_summary.csv, var_backtest.txt")
+        print("\n  wrote to risk/output/: var_summary.csv, var_backtest.txt")
         print("\n[stage=var complete]")
         return
 
@@ -674,7 +683,7 @@ def main() -> None:
     risk_figure(st_res["grid"], combined, bt_res, OUT / "risk_heatmap.png")
     written = ["var_summary.csv", "var_backtest.txt", "stress_scenarios.csv",
                "stress_grid.csv", "reverse_stress.csv", "risk_heatmap.png"]
-    print("  wrote to output/: " + ", ".join(written))
+    print("  wrote to risk/output/: " + ", ".join(written))
     print(f"  repricing calls this run: {ctx['rev'].n_calls:,}")
     print("\n[done]")
 

@@ -93,12 +93,16 @@ check("calendar legs sit in different buckets at window end",
 # Risk module -- invariants of the VaR/ES estimators and the stress framework
 # ==========================================================================
 
+# The risk module is a sibling package in the merged repo: it drives the pricer
+# in this directory, so its invariants are checked here alongside the pricer's.
+sys.path.insert(0, str(ROOT.parent / "risk"))
+
+from revalue import build_revaluer                                    # noqa: E402
 from src.portfolio import MarketState, load_portfolio                 # noqa: E402
 from src.rates import build_level_overlay                             # noqa: E402
-from src.revalue import build_revaluer                                # noqa: E402
-from src.stress import stress_grid                                    # noqa: E402
-from src.var import (backtest_var, filtered_historical_var,           # noqa: E402
-                     full_reval_var, historical_var, parametric_var)
+from stress import stress_grid                                        # noqa: E402
+from var import (backtest_var, filtered_historical_var,               # noqa: E402
+                 full_reval_var, historical_var, parametric_var)
 
 ALPHAS = [0.05, 0.025, 0.01]      # 95%, 97.5%, 99% -- ascending confidence
 OUT = ROOT / CONFIG["output"]["dir"]

@@ -26,11 +26,13 @@ CONFIG: dict[str, Any] = {
     },
 
     # ------------------------------------------------------ upstream inputs
-    # Project 1 and Project 2 outputs. Both are consumed through adapters in
-    # src/rates.py and src/surface.py that degrade to flat inputs on failure.
+    # Project 1 and Project 2 outputs, at their paths in the merged repo
+    # (surface/ and curves/ are siblings of attribution/). Both are consumed
+    # through adapters in src/rates.py and src/surface.py that degrade to flat
+    # inputs on failure.
     "upstream": {
-        "sabr_params": "../sabr-calibration/output/calibrated_params.csv",
-        "sofr_curve": "../sofr-curve/output/curve.csv",
+        "sabr_params": "../surface/output/calibrated_params.csv",
+        "sofr_curve": "../curves/output/curve.csv",
         # Fallback used only if sofr_curve cannot be read/parsed.
         "flat_rate_fallback": 0.035,
         "flat_vol_fallback": 0.16,
