@@ -19,9 +19,11 @@ CONFIG: dict[str, Any] = {
     "curve_horizon": "2066-12-31",
     "calendar_start": "2025-01-01",
     # ---- data locations ---------------------------------------------------
-    # Futures and fixings are read in place from the folder the raw CME /
-    # NY Fed pulls already live in; only the swap quotes are project-local.
-    "raw_data_dir": PROJECT_ROOT.parent,
+    # All four input files are project-local. The raw CME / NY Fed pulls used to
+    # be read in place from the folder above the repo, which meant a clone could
+    # not run `run.py` at all; they were copied into data/ during the merge into
+    # derivatives-pricing-risk so the module is self-contained and reproducible.
+    "raw_data_dir": PROJECT_ROOT / "data",
     "data_dir": PROJECT_ROOT / "data",
     "output_dir": PROJECT_ROOT / "output",
     "sr1_file": "1m_futures_data.csv",

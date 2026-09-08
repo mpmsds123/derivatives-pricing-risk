@@ -708,8 +708,11 @@ the discount factor increasingly convex in the forwards.
 ## Layout
 
 ```
-sofr-curve/
+curves/
   data/swap_rates.csv        OIS par quotes as of the valuation date
+  data/3m_futures_data.csv   SR3 quarterly futures settlements
+  data/1m_futures_data.csv   SR1 monthly futures settlements
+  data/rzd_rates.csv         published SOFR fixings
   src/config.py              every convention, bound and bump size
   src/daycount.py            ACT/360, ACT/365F, 30/360
   src/calendar_utils.py      US business days, ModFol, IMM dates, accrual schedules
@@ -722,8 +725,10 @@ sofr-curve/
   output/
 ```
 
-Futures and fixings are read in place from the folder above this one
-(`{cfg['raw_data_dir']}`); only the swap quotes are project-local.
+All four inputs are project-local, under `curves/data/`. Earlier versions read
+the futures and fixings from the folder above the repo, which meant a fresh
+clone could not run `run.py`; they were vendored into `data/` when this module
+was merged into `derivatives-pricing-risk`.
 """
     path.write_text(text)
 
