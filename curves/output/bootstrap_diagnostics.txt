@@ -1,0 +1,144 @@
+SOFR curve bootstrap diagnostics
+valuation date      : 2026-03-09
+curve horizon       : 2066-12-30
+grid business days  : 10201
+instruments         : 21
+  SR1 futures       : 0
+  SR3 futures       : 7
+  OIS swaps         : 14
+futures source      : SR3
+cross-check quotes  : 6 (SR1H26, SR1J26, SR1K26, SR1M26, SR1N26, SR1Q26)
+convexity adj (bp)  : 0.0
+Brent bracket       : (-0.02, 0.2)
+
+==============================================================================
+FRONT CONTRACT DECOMPOSITION (SR3, three compounding factors)
+==============================================================================
+Each SR3 settles to daily-compounded SOFR over its IMM reference quarter.
+CF_total = CF_realized * CF_prebootstrapped * CF_unknown, and the bootstrap
+solves the single unknown segment given the other two.
+
+ contract                   quarter   CF_realized    d        CF_pre    d    CF_unknown    d      CF_total   D_Q
+----------------------------------------------------------------------------------------------------------------
+   SR3H26    2025-12-17->2026-03-18   1.008404233   82   1.000000000    0   1.000877971    9   1.009289583    91
+   SR3M26    2026-03-18->2026-06-17   1.000000000    0   1.000000000    0   1.008998889   91   1.008998889    91
+   SR3U26    2026-06-17->2026-09-16   1.000000000    0   1.000000000    0   1.008607083   91   1.008607083    91
+   SR3Z26    2026-09-16->2026-12-16   1.000000000    0   1.000000000    0   1.008354306   91   1.008354306    91
+   SR3H27    2026-12-16->2027-03-17   1.000000000    0   1.000000000    0   1.008215278   91   1.008215278    91
+   SR3M27    2027-03-17->2027-06-16   1.000000000    0   1.000000000    0   1.008126806   91   1.008126806    91
+   SR3U27    2027-06-16->2027-09-15   1.000000000    0   1.000000000    0   1.008076250   91   1.008076250    91
+
+Front contract SR3H26 in detail:
+  reference quarter        : 2025-12-17 -> 2026-03-18 (91 calendar days)
+  quoted price             : 96.3250  ->  rate 3.67500%
+  CF implied by the quote  : 1.009289583333
+  CF reproduced by curve   : 1.009289583333
+  1. realized fixings      : 1.008404233263 over 82 days
+  2. pre-bootstrapped      : 1.000000000000 over 0 days
+  3. unknown forward       : 1.000877971394 over 9 days
+  implied unknown forward  : 3.511886%
+  quote -> forward gearing : 10.03x  (= D_Q / D_unknown / CF_realized)
+     a 1bp move in the front quote implies a 10.0bp move in the stub forward,
+     because the realized days cannot move. This gearing is why the front
+     contract carries a KR01 comparable to a full-quarter contract while
+     spanning only a few days of curve -- see risk_ladder.csv.
+
+
+  note: segment 2 is zero for every contract under futures_source='SR3'.
+        The front contract has none because the fixings run right up to the
+        valuation date; the rest have none because consecutive IMM quarters
+        tile exactly, so each contract's quarter opens on the previous
+        contract's pillar. A non-zero segment 2 appears only when the pillar
+        set does not align with the quarter boundaries, i.e. under
+        futures_source='SR1_THEN_SR3' or 'ALL'. The three-way solve is
+        implemented for the general case regardless.
+
+==============================================================================
+BOOTSTRAP SOLVES (Brent, one unknown forward per instrument)
+==============================================================================
+instrument  kind                   segment   forward %  iters  f-calls  residual bp
+-----------------------------------------------------------------------------------
+    SR3H26   SR3    2026-03-09->2026-03-18    3.510630     11       12    1.638e-11
+    SR3M26   SR3    2026-03-18->2026-06-17    3.544413     14       15   -1.332e-11
+    SR3U26   SR3    2026-06-17->2026-09-16    3.390758      9       10    2.796e-11
+    SR3Z26   SR3    2026-09-16->2026-12-16    3.291567     21       22    5.829e-12
+    SR3H27   SR3    2026-12-16->2027-03-17    3.237031     15       16    7.772e-12
+    SR3M27   SR3    2027-03-17->2027-06-16    3.202280     14       15    1.305e-11
+    SR3U27   SR3    2027-06-16->2027-09-15    3.182456     12       13    9.714e-13
+        2Y  SWAP    2027-09-15->2028-03-15    3.920040     11       12   -4.531e-11
+        3Y  SWAP    2028-03-15->2029-03-14    3.183723     12       13    4.906e-11
+        4Y  SWAP    2029-03-14->2030-03-13    3.126928     11       12   -5.551e-13
+        5Y  SWAP    2030-03-13->2031-03-13    3.055119     11       12   -2.817e-11
+        6Y  SWAP    2031-03-13->2032-03-15    3.583417     10       11   -2.061e-11
+        7Y  SWAP    2032-03-15->2033-03-15    3.691176     11       12    2.776e-13
+        8Y  SWAP    2033-03-15->2034-03-15    3.799687     12       13    2.505e-11
+        9Y  SWAP    2034-03-15->2035-03-14    3.917257     17       18    2.151e-12
+       10Y  SWAP    2035-03-14->2036-03-13    4.148288     13       14    3.123e-12
+       12Y  SWAP    2036-03-13->2038-03-15    4.010640     11       12    3.192e-12
+       15Y  SWAP    2038-03-15->2041-03-13    4.078117     18       19    7.841e-12
+       20Y  SWAP    2041-03-13->2046-03-14    3.926618     15       16   -1.457e-11
+       30Y  SWAP    2046-03-14->2056-03-15    3.754497     16       17    4.580e-12
+       40Y  SWAP    2056-03-15->2066-03-15    3.421445     12       13    1.214e-11
+
+total Brent iterations : 276
+all converged          : True
+
+==============================================================================
+SELF-CONSISTENCY (reprice every pillar input off the finished curve)
+==============================================================================
+    SR3: n= 7  max |error| = 2.796e-11 bp (SR3U26)
+   SWAP: n=14  max |error| = 4.906e-11 bp (3Y)
+
+  overall max |error| = 4.906e-11 bp on 3Y
+  tolerance           = 0.01 bp -> PASS
+
+==============================================================================
+FUTURES STRIP BASIS (quotes deliberately excluded from the pillars)
+==============================================================================
+Every SR1 contract month in this snapshot falls strictly inside an SR3
+reference quarter, so the two strips are redundant and cannot both be
+pillars. The excluded strip is repriced off the finished curve below; the
+error is the SR1-vs-SR3 basis, not a bootstrap failure.
+
+ contract     market      model    basis bp
+-------------------------------------------
+   SR1H26    96.3320    96.4327      -10.07
+   SR1J26    96.3300    96.4556      -12.56
+   SR1K26    96.3600    96.4556       -9.56
+   SR1M26    96.3850    96.5273      -14.23
+   SR1N26    96.4300    96.6092      -17.92
+   SR1Q26    96.4900    96.6092      -11.92
+
+  mean |basis| = 12.71 bp, max |basis| = 17.92 bp
+  For reference, forcing both strips onto the pillars (futures_source='ALL')
+  drives these to zero but yields adjacent forward segments of 1.83% and
+  4.40% -- the disagreement has to go somewhere.
+
+==============================================================================
+FUTURES / SWAP HANDOFF
+==============================================================================
+  last futures segment :  SR3U27 2027-06-16->2027-09-15 at 3.1825%
+  first swap segment   :      2Y 2027-09-15->2028-03-15 at 3.9200%
+  step at the handoff  : +73.8 bp
+
+  The step is the futures/swap basis landing on a short stub. Part of it
+  is genuine convexity (futures are margined daily, swaps are not, so
+  futures rates sit above forwards), part is that the two quote sets are
+  separate market pulls. It is the price of a piecewise-constant forward:
+  a smooth interpolator would spread it, at the cost of a global solve.
+
+==============================================================================
+OIS FLOAT LEG TELESCOPING IDENTITY
+==============================================================================
+The compounded overnight leg telescopes to DF(t0) - DF(tN) when each
+period is discounted at its accrual end. With the market-standard
+2-business-day payment lag it does not, and the gap below is that lag.
+
+  tenor    explicit float PV      DF(t0)-DF(tN)       difference   in bp of notional
+------------------------------------------------------------------------------------
+     1Y       0.033577373426     0.033589451019       -1.208e-05             -0.1208
+     2Y       0.067991476432     0.068011049137       -1.957e-05             -0.1957
+     5Y       0.152272659006     0.152306860399       -3.420e-05             -0.3420
+    10Y       0.301793385838     0.301871559552       -7.817e-05             -0.7817
+    30Y       0.681523858459     0.681709944421       -1.861e-04             -1.8609
+    11Y       0.329600397863     0.329684767695       -8.437e-05             -0.8437
