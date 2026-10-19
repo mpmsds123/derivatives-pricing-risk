@@ -7,16 +7,19 @@
 This repository builds an end-to-end derivatives valuation stack:
 
 ```text
-market quotes -> SOFR curve -> volatility surface -> option pricing
-              -> Greeks / P&L attribution -> portfolio risk
+market rates ------> SOFR curve -----------\
+                                            > option pricing -> Greeks / P&L attribution -> portfolio risk
+SPY option quotes -> SABR volatility surface /
 ```
 
 It bootstraps a SOFR OIS curve from SR3 futures and OIS swaps, calibrates a SABR
 surface to SPY implied volatilities, and uses the resulting market state to value
 an eight-leg SPY option portfolio. The same leg-level pricing engine produces
 portfolio Greeks, daily P&L attribution, full-revaluation VaR/ES, and stress
-results. Each stage consumes the previous stage's actual output files; the
-cached market snapshots make the reported results reproducible.
+results. The curve and volatility modules produce calibrated market-state
+inputs that converge in the portfolio valuation layer; attribution and risk then
+reuse the same pricing machinery. The cached market snapshots make the reported
+results reproducible.
 
 ## Pricing Framework
 
