@@ -97,10 +97,10 @@ substitute for it.
   delta reduces delta-hedged P&L volatility from **$5,454 to $3,311**, a 39.3%
   reduction.
 - **Taylor vs full repricing at one-day shocks.** The delta-gamma-vega
-  approximation stays within **9.4%** of full-revaluation VaR on this snapshot;
+  approximation stays within **6.0–10.4%** of full-revaluation VaR across the 95%, 97.5% and 99% levels;
   daily shocks are small enough for the local expansion to work well.
 - **Taylor vs full repricing under stress.** Across eleven stress scenarios,
-  the same expansion has a **32% median absolute error** and reaches **89%**.
+  the same expansion has a **32% median absolute error** and exceeds **100%** in two of them.
   The comparison locates the approximation's useful range: strong locally,
   materially less reliable at stress magnitudes.
 
