@@ -22,7 +22,7 @@ Dependencies: `numpy`, `scipy`, `pandas`, `matplotlib`, `yfinance`.
 | expiries calibrated | 8, T = 0.115y … 2.357y |
 | calibration points | **735** (from 3,963 raw quotes) |
 | aggregate RMSE | **24.4 bp** (RMS across expiries); 26.4 bp point-weighted |
-| aggregate RMSE, excl. the 2.36y expiry | **14.58 bp** |
+| aggregate RMSE, excl. the 2.36y expiry | **14.58 bp** (RMS across expiries); 14.79 bp point-weighted |
 | best / worst expiry RMSE | 9.4 bp (0.11y) / 57.1 bp (2.36y) |
 | max absolute error | **119.2 bp**, at 2028-12-15, strike offset +6842bp |
 | ATM reproduction error | **1.1e-12 bp** — exact, by construction |
@@ -292,7 +292,7 @@ the null result is traceable to numbers rather than asserted.
    stability through time, only across the term structure.
 
 4. **The rate curve is a proxy.** Treasury constant-maturity yields interpolated
-   linearly in T, not a bootstrapped OIS discount curve. Project 2 builds the
+   linearly in T, not a bootstrapped OIS discount curve. `curves/` builds the
    latter; wiring it in here would be the natural improvement.
 
 ---
@@ -316,7 +316,7 @@ the null result is traceable to numbers rather than asserted.
 ## 7. Layout
 
 ```
-sabr-calibration/
+surface/
   data/loader.py        # yfinance chains + swaption-CSV paths, one output schema
   data/raw/             # pinned snapshot (chains, spot, dividends, meta)
   src/config.py         # every threshold, bound and convention

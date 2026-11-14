@@ -69,8 +69,8 @@ consistent valuation basis.
 | Stage | Verified result | Evidence |
 |---|---|---|
 | SOFR curve | **21 curve pillars** reproduce their input quotes to **4.91e-11 bp**, versus a **0.01 bp** tolerance | [`curves/output/par_rate_check.csv`](curves/output/par_rate_check.csv) |
-| SABR surface | **735 SPY quotes across 8 expiries**; aggregate RMSE **24.4 bp** | [`surface/output/calibrated_params.csv`](surface/output/calibrated_params.csv) |
-| Surface fit disclosure | RMSE is **14.58 bp** excluding the 2.36y expiry; that expiry fits poorly at **57.1 bp** and is retained rather than hidden | [`surface/README.md`](surface/README.md) |
+| SABR surface | **735 SPY quotes across 8 expiries**; aggregate RMSE **24.4 bp** equal-weighted across expiries, **26.4 bp** quote-weighted | [`surface/output/calibrated_params.csv`](surface/output/calibrated_params.csv) |
+| Surface fit disclosure | Excluding the 2.36y expiry, RMSE is **14.58 bp** equal-weighted and **14.79 bp** quote-weighted (619 quotes); that expiry fits poorly at **57.1 bp** and is retained rather than hidden | [`surface/README.md`](surface/README.md) |
 | P&L attribution | Second-order Greeks reduce mean unexplained P&L from **$348 to $43** (**87.6%**), with **R² 0.99999** | [`attribution/output/attribution_summary.csv`](attribution/output/attribution_summary.csv) |
 | Portfolio risk | 1-day 99% full-revaluation VaR **$65,588** and ES **$80,219** on a **$1.66M** book | [`risk/output/var_summary.csv`](risk/output/var_summary.csv) |
 | Reproducibility | A clean clone re-running all four stages leaves `git status` clean: every committed output regenerates **byte for byte**, figures included | `make run` |
@@ -196,7 +196,7 @@ cd ../surface && python3 run.py        # ~5s
 cd ../attribution && python3 run.py    # ~40s
 cd .. && python3 risk/run_risk.py      # ~74s
 
-python3 -m pytest -q                   # 62 module invariants + 2 cross-module checks
+python3 -m pytest -q                   # 5 pytest tests: 2 run the 62 invariant checks, 3 cross-module/curve checks
 cd surface && python3 tools/smile_roughness.py   # re-derives the expiry exclusions
 ```
 
@@ -228,6 +228,10 @@ different results.
 - **Non-independent validation.** Repricing and Greek approximations reuse the
   same model, the backtested P&L series is produced by that model rather than
   traded, and this validation was performed by the model developer.
+- **Stale curve date.** The SOFR curve is dated 2026-03-09 while the book and surface are dated 2026-08-07; attribution only shifts it by the ^IRX level change.
+- **Two discount curves.** The surface discounts on Treasury constant-maturity yields; attribution and risk discount on the SOFR curve.
+- **Fixed dividend yield.** Attribution uses a constant 0.973% while put-call parity in the surface implies 0.72%–1.70% across expiries.
+- **Headline VaR not backtested.** The backtest covers historical-simulation VaR only; the headline full-revaluation VaR ($65,588) is not backtested.
 
 Detailed module caveats, backtest qualifications, stress-floor effects, and
 open validation items are documented in

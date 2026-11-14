@@ -1,8 +1,8 @@
 """Hagan et al. (2002) lognormal SABR approximation and the ATM alpha solve.
 
-Vendored from Project 1 (`sabr-calibration/src/hagan.py`, `calibrate.py`) so
+Vendored from `surface/` (`surface/src/hagan.py`, `calibrate.py`) so
 this project runs standalone. The formulas are identical; only the CONFIG
-import differs. Project 1 remains the authority for the calibration itself --
+import differs. `surface/` remains the authority for the calibration itself --
 here we consume its fitted (rho, nu) and re-solve alpha whenever the forward,
 maturity or ATM level changes.
 """

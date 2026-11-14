@@ -32,7 +32,7 @@ from src.surface import VolSurface, build_surface, load_sabr_params   # noqa: E4
 
 OUT = ROOT / CONFIG["output"]["dir"]
 DATA = ROOT / "data"
-CAL_DATE = "2026-08-07"          # Project 1's calibration date; lambda = 1 here
+CAL_DATE = "2026-08-07"          # `surface/`'s calibration date; lambda = 1 here
 _X = CONFIG["experiments"]
 BASE_KAPPA = float(_X["kappa_grid"][0])
 
@@ -86,7 +86,7 @@ def stage_data(live: bool = False) -> dict:
     ts = load_sabr_params(ROOT / CONFIG["upstream"]["sabr_params"])
     overlay = build_level_overlay(md.rate_level, curve.asof)
 
-    _hr("3. UPSTREAM INPUTS  (Project 1 vol, Project 2 discounting)")
+    _hr("3. UPSTREAM INPUTS  (`surface/` vol, `curves/` discounting)")
     print(f"discounting : [{curve.source}]\n              {curve.note}")
     print(f"vol surface : [{ts.source}]\n              {ts.note}")
     if overlay is not None:

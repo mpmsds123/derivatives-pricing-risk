@@ -2,8 +2,8 @@
 
 Decomposes the daily PnL of a SPY option book into Greek contributions, measures
 the unexplained residual, and uses the residual's *shape* to diagnose which term
-the model is missing. Volatility comes from the SABR calibration in Project 1;
-discounting comes from the bootstrapped SOFR OIS curve in Project 2.
+the model is missing. Volatility comes from the SABR calibration in `surface/`;
+discounting comes from the bootstrapped SOFR OIS curve in `curves/`.
 
 ![Unexplained PnL diagnostics](output/residual_diagnostics.png)
 
@@ -46,8 +46,8 @@ Dependencies: `numpy`, `scipy`, `pandas`, `matplotlib`, `yfinance`.
 | SABR delta, hedge std | **−39.3%** vs BS delta ($5,454 → $3,311) |
 
 Sources actually used at run time (each output carries the stamp):
-`sofr-curve` for discounting (21 pillars, 0.025y–40y, zeros 3.30%–3.82%),
-`sabr-calibration` for vol (8 expiries, T 0.115–2.357y). Neither fallback fired.
+`curves/` for discounting (21 pillars, 0.025y–40y, zeros 3.30%–3.82%),
+`surface/` for vol (8 expiries, T 0.115–2.357y). Neither fallback fired.
 
 ---
 
@@ -250,7 +250,7 @@ what would put this book near a regulatory threshold.**
 
 ### 5.1 Vol surface evolution — the load-bearing approximation
 
-**Project 1 calibrated on a single date (2026-08-07). A one-date calibration
+**`surface/` calibrated on a single date (2026-08-07). A one-date calibration
 cannot be evolved without an assumption, and this is it:**
 
 - **ρ(T) and ν(T) are held FIXED through time**, interpolated in maturity onto
@@ -267,7 +267,7 @@ cannot be evolved without an assumption, and this is it:**
   *change* in vol regime is transmitted, not the level.
 - **α is re-solved from the ATM cubic at every (date, expiry)**, so the surface
   reproduces its own ATM level exactly. On the calibration date λ = 1 and the
-  surface reproduces Project 1's calibrated vols to 2.8e-17 (asserted in tests).
+  surface reproduces `surface/`'s calibrated vols to 2.8e-17 (asserted in tests).
 
 Over the window λ ranges 0.502 – 1.311 (realized vol 7.3% – 19.1%, EWMA λ=0.94).
 
@@ -288,7 +288,7 @@ drop-out date that no attribution term can explain. EWMA has no such artefact.
 
 ### 5.2 Discounting
 
-Project 2's bootstrapped SOFR OIS curve supplies the entire term structure,
+`curves/`'s bootstrapped SOFR OIS curve supplies the entire term structure,
 interpolated in year fraction on the continuously-compounded zero rate. **If
 `curve.csv` cannot be read or parsed the adapter degrades to a flat constant
 rate and stamps `rate_source = flat-fallback` on every output** — both paths are
@@ -381,7 +381,7 @@ pnl-explain/
   data/portfolio.csv     # 8 positions, regenerated each run
   data/raw/              # cached snapshot -- reruns reproduce every number above
   src/config.py          # every convention, bump size and bound
-  src/hagan.py           # SABR vol + ATM alpha cubic (vendored from Project 1)
+  src/hagan.py           # SABR vol + ATM alpha cubic (vendored from `surface/`)
   src/pricing.py         # BS price, analytic Greeks, FD cross-Greeks
   src/rates.py           # SOFR curve adapter + flat fallback + rate overlay
   src/surface.py         # historical SABR surface (the §5.1 approximation)

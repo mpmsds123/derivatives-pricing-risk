@@ -44,7 +44,7 @@ for nm, ana, fd, tol in (("gamma", g.gamma, fd_gamma(S, K, T, r, q, v, "C"), 5e-
 
 print("\nupstream adapters")
 curve = load_curve(ROOT / CONFIG["upstream"]["sofr_curve"])
-check("SOFR curve loads from Project 2", curve.source == "sofr-curve", curve.source)
+check("SOFR curve loads from `curves/`", curve.source == "sofr-curve", curve.source)
 bad = load_curve(ROOT / "does_not_exist.csv")
 check("curve falls back to flat on failure", bad.source == "flat-fallback",
       f"r(5y)={bad.base_zero(5.0):.4%}")
@@ -52,7 +52,7 @@ check("flat fallback is genuinely flat",
       abs(bad.base_zero(1.0) - bad.base_zero(30.0)) < 1e-15)
 
 ts = load_sabr_params(ROOT / CONFIG["upstream"]["sabr_params"])
-check("SABR params load from Project 1", ts.source == "sabr-calibration", ts.source)
+check("SABR params load from `surface/`", ts.source == "sabr-calibration", ts.source)
 check("SABR falls back to flat on failure",
       load_sabr_params(ROOT / "nope.csv").source == "flat-fallback")
 
@@ -63,7 +63,7 @@ rv_cal = md.realized_vol.dropna().loc[:CAL_DATE].iloc[-1]
 check("anchor equals realized vol on calibration date", abs(anchor - rv_cal) < 1e-12)
 errs = [abs(surface.atm_vol(float(t), 1.0) - float(a))
         for t, a in zip(ts.T, ts.atm_vol)]
-check("surface reproduces Project 1 ATM vols at lambda=1",
+check("surface reproduces `surface/` ATM vols at lambda=1",
       max(errs) < 1e-12, f"max abs err {max(errs):.2e}")
 
 print("\nSABR ATM reproduction (alpha cubic)")

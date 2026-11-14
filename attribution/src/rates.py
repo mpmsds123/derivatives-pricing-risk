@@ -1,12 +1,12 @@
 """Discount-curve adapter.
 
-Primary source is Project 2's bootstrapped SOFR OIS curve
-(`sofr-curve/output/curve.csv`). If that file is missing or unparseable the
+Primary source is `curves/`'s bootstrapped SOFR OIS curve
+(`curves/output/curve.csv`). If that file is missing or unparseable the
 adapter degrades to a flat constant rate and records which source was used;
 every downstream output carries a `rate_source` stamp so a reader can tell
 whether a run used the real curve.
 
-The curve is a single snapshot (Project 2's valuation date). Two things follow:
+The curve is a single snapshot (`curves/`'s valuation date). Two things follow:
 
   * Term structure  -- taken from the curve, interpolated in year fraction on
     the continuously-compounded zero rate.
@@ -58,7 +58,7 @@ class DiscountCurve:
 
 
 def load_curve(path: str | Path | None = None) -> DiscountCurve:
-    """Load Project 2's curve; fall back to a flat rate on any failure."""
+    """Load `curves/`'s curve; fall back to a flat rate on any failure."""
     path = Path(path if path is not None else _UP["sofr_curve"])
     flat = _UP["flat_rate_fallback"]
     try:

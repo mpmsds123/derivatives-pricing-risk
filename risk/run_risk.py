@@ -44,7 +44,7 @@ from var import (backtest_var, filtered_historical_var,               # noqa: E4
 OUT = ROOT / CONFIG["output"]["dir"]            # risk/output -- results
 ATTR_OUT = ATTR / CONFIG["output"]["dir"]       # attribution/output -- inputs
 DATA = ATTR / "data"
-CAL_DATE = "2026-08-07"          # Project 1's calibration date; lambda = 1 here
+CAL_DATE = "2026-08-07"          # `surface/`'s calibration date; lambda = 1 here
 BASE_KAPPA = float(CONFIG["experiments"]["kappa_grid"][0])
 
 # ---------------------------------------------------------------- risk config

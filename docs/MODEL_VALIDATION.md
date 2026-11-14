@@ -55,8 +55,8 @@ and a reverse stress test — all applied by full repricing (§4.3).
 | Input | Source | Window | Known issues |
 |---|---|---|---|
 | Spot path | yfinance daily close | 2025-08-01 .. 2026-08-07 (256 valuation dates, 255 daily moves; EWMA burn-in from 2024-06-01) | Close-to-close only; no intraday path |
-| Implied vol | SABR surface (Project 1) evolved per §5.1 of the attribution README | Single calibration 2026-08-07: 8 expiries, T 0.115y–2.357y, ATM 13.23%–19.72%, ρ −0.639..−0.503, ν 0.319..2.152, β = 0.5 | Single-date calibration; ρ and ν frozen |
-| Discount curve | Bootstrapped SOFR OIS (Project 2) + ^IRX level overlay | Curve as-of 2026-03-09: 21 pillars, 0.025y–40.04y, zeros 3.3037%–3.8176%; overlay spans the P&L window | Single snapshot; no curve history |
+| Implied vol | SABR surface (`surface/`) evolved per §5.1 of the attribution README | Single calibration 2026-08-07: 8 expiries, T 0.115y–2.357y, ATM 13.23%–19.72%, ρ −0.639..−0.503, ν 0.319..2.152, β = 0.5 | Single-date calibration; ρ and ν frozen |
+| Discount curve | Bootstrapped SOFR OIS (`curves/`) + ^IRX level overlay | Curve as-of 2026-03-09: 21 pillars, 0.025y–40.04y, zeros 3.3037%–3.8176%; overlay spans the P&L window | Single snapshot; no curve history |
 | Daily P&L series | `daily_attribution.csv` from the attribution pipeline | 255 daily moves | **Model-generated, not traded.** Each day's P&L is this pipeline's own full revaluation of the book, not a realised trading result, so §5.2 backtests the model against itself — see §7.2 |
 
 **Sample adequacy.** 255 observations at 99% implies an expected 2.55 tail

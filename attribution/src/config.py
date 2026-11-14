@@ -26,7 +26,7 @@ CONFIG: dict[str, Any] = {
     },
 
     # ------------------------------------------------------ upstream inputs
-    # Project 1 and Project 2 outputs, at their paths in the merged repo
+    # `surface/` and `curves/` outputs, at their paths in the merged repo
     # (surface/ and curves/ are siblings of attribution/). Both are consumed
     # through adapters in src/rates.py and src/surface.py that degrade to flat
     # inputs on failure.
@@ -40,7 +40,7 @@ CONFIG: dict[str, Any] = {
 
     # --------------------------------------------------------------- model
     "model": {
-        "beta": 0.5,               # inherited from Project 1's calibration
+        "beta": 0.5,               # inherited from `surface/`'s calibration
         "atm_tolerance": 1e-12,
         "alpha_min": 1e-8,
         # Continuous dividend yield: trailing-12m SPY distributions / spot at

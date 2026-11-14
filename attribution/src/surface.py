@@ -1,6 +1,6 @@
 """Historical SABR volatility surface.
 
-Project 1 calibrated SPY on a single date (2026-08-07). This module turns that
+`surface/` calibrated SPY on a single date (2026-08-07). This module turns that
 one calibration into a daily surface over the PnL window.
 
 APPROXIMATION (stated in the README, repeated here because it is the single
@@ -32,7 +32,7 @@ most important modelling choice in the project):
 
   * alpha is re-solved from the ATM cubic at every (date, expiry). The surface
     therefore reproduces its own ATM level exactly, and on the calibration date
-    lambda = 1 and the surface reproduces Project 1's calibrated vols exactly.
+    lambda = 1 and the surface reproduces `surface/`'s calibrated vols exactly.
 
 What this does NOT capture: skew steepening in a selloff (rho is frozen), and
 vol-of-vol regime shifts (nu is frozen). Both would require a time series of
@@ -57,7 +57,7 @@ _D = CONFIG["data"]
 
 @dataclass
 class SABRTermStructure:
-    """Calibrated parameter term structure from Project 1."""
+    """Calibrated parameter term structure from `surface/`."""
 
     T: np.ndarray          # calibrated maturities, ascending
     atm_vol: np.ndarray
@@ -84,7 +84,7 @@ class SABRTermStructure:
 
 
 def load_sabr_params(path: str | Path | None = None) -> SABRTermStructure:
-    """Load Project 1's calibrated parameters; degrade to a flat surface on failure."""
+    """Load `surface/`'s calibrated parameters; degrade to a flat surface on failure."""
     path = Path(path if path is not None else _UP["sabr_params"])
     try:
         df = pd.read_csv(path)

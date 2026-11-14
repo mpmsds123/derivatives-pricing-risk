@@ -11,6 +11,10 @@ outputs match a fresh run byte for byte, PNGs included. Everything below is a ga
 audit found against that run.
 
 ### Added
+- `tests/test_curves_reprice.py`: rebuilds the SOFR curve and asserts all 21 pillars
+  (7 SR3, 14 OIS) reprice within the 0.01 bp tolerance; `curves/` previously had no test.
+- README Limitations: stale curve date, two discount curves, fixed dividend yield vs
+  parity-implied 0.72%–1.70%, and that headline full-revaluation VaR is not backtested.
 - `requirements.txt`, `pytest.ini`, `Makefile`, `tests/test_pipeline_checks.py` and
   `.github/workflows/ci.yml` are now tracked. They existed locally but were
   untracked, so a fresh clone could not install dependencies, the CI workflow had
@@ -82,6 +86,11 @@ audit found against that run.
 ### Removed
 - Stale reference to a non-existent `greeks.py` in `attribution/src/pricing.py`; the
   finite-difference cross-Greeks are `fd_vanna` / `fd_volga` in that same file.
+- README surface RMSE now states both weightings: 24.4 bp equal-weighted / 26.4 bp
+  quote-weighted; excluding 2.36y, 14.58 bp equal-weighted / 14.79 bp quote-weighted.
+- README test count now says 5 pytest tests, 2 of which run the 62 invariant checks.
+- `attribution/` and `risk/` code, docs and READMEs: "Project 1/2" labels and the
+  `sofr-curve/` / `sabr-calibration/` paths replaced with `surface/` and `curves/`.
 
 ### Unchanged
 - No pricing, calibration, attribution or risk number moved. Every edit above is
