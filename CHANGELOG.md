@@ -55,8 +55,13 @@ audit found against that run.
   would only move the flat-extrapolation floor. Verified rather than asserted:
   calibrating it fits at 6.59 bp RMSE with ν = 2.87 inside its bound and leaves every
   butterfly and calendar check at zero.
-- `README.md` rewritten problem-first, with every number traced to the file that
-  writes it and measured stage runtimes.
+- `README.md` keeps the pricing-first positioning it was given on GitHub in
+  October and takes today's corrections on top: the 14.58 bp figure, the Holm
+  multiplicity result, the P&L series relabelled as model-generated, the
+  expiry-exclusion reasoning, the clean-clone reproduction claim, a Running
+  section with working interpreters and measured stage runtimes, and the
+  denominator behind the 6.0-10.4% Taylor gap stated explicitly, since
+  `run_risk.py` prints the same three gaps against the other denominator.
 - Surface RMSE excluding the 2.36y expiry corrected to **14.58 bp** (was 14.8 bp) in
   `surface/README.md`, twice.
 - `docs/MODEL_VALIDATION.md` §3 no longer calls the P&L series "Realised P&L". It is

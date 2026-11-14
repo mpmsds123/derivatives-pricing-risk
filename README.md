@@ -1,243 +1,234 @@
 # Derivatives Pricing & Risk
 
-**Problem.** Price an option book the way a desk has to: from traded quotes, under
-real market conventions, with a risk number you can defend when the Greeks stop
-being accurate.
+**From market curves and volatility surfaces to portfolio valuation, Greeks, P&L attribution, and risk.**
 
-**Approach.** Four stages, each consuming the previous stage's output *files* — no
-mocks, no in-memory hand-offs. Bootstrap a 40-year SOFR OIS curve from futures and
-swaps; calibrate SABR to a SPY vol surface; value an 8-leg book daily and decompose
-its P&L into Greek contributions; then reprice that book under historical and
-hypothetical shocks for VaR, ES and stress.
+## Overview
 
-**Result.** 21 curve pillars reproduce their inputs to 4.91e-11 bp. 735 option
-quotes fit at 24.4 bp aggregate RMSE with zero arbitrage violations. Second-order
-Greeks cut mean unexplained P&L 87.6% ($348 → $43 against $22,031 mean daily P&L).
-1-day 99% VaR by full revaluation is $65,588 on a $1.66M book — and the rolling
-historical estimator that is supposed to approximate it **fails its Kupiec backtest**
-(12 and 9 exceptions against 6.5 and 3.25 expected), which is reported rather than
-retuned.
+This repository builds an end-to-end derivatives valuation stack:
 
-A full rerun from a clean clone reproduces every committed output byte for byte.
-
-```
-curves/              surface/            attribution/         risk/
-7 SR3 futures        SPY chains          8-leg SPY book       4 VaR/ES estimators
-+ 14 OIS swaps       735 quotes          255 daily moves      11 stress scenarios
-     │                   │                    │                     │
-     ▼                   ▼                    ▼                     ▼
-bootstrap 40Y        calibrate SABR      Greek attribution    full repricing
-piecewise-const      per expiry          + FRTB PLA test      + 13x13 grid
-     │                   │                    │                     │
-     └── curve.csv ─────►│                    │                     │
-                         └─ calibrated_params►│                     │
-                                              ├─ daily_attribution ►│
-                                              └─ pricer (revalue) ──┘
+```text
+market rates ------> SOFR curve -----------\
+                                            > option pricing -> Greeks / P&L attribution -> portfolio risk
+SPY option quotes -> SABR volatility surface /
 ```
 
----
+It bootstraps a SOFR OIS curve from SR3 futures and OIS swaps, calibrates a SABR
+surface to SPY implied volatilities, and uses the resulting market state to value
+an eight-leg SPY option portfolio. The same leg-level pricing engine produces
+portfolio Greeks, daily P&L attribution, full-revaluation VaR/ES, and stress
+results. The curve and volatility modules produce calibrated market-state
+inputs that converge in the portfolio valuation layer; attribution and risk then
+reuse the same pricing machinery. The cached market snapshots make the reported
+results reproducible.
 
-## Results
+## Pricing Framework
 
-### curves/ — SOFR OIS bootstrap and key-rate risk
+### 1. Curve construction
 
-| check | result | file |
-|---|---|---|
-| pillars | 7 SR3 futures + 14 OIS swaps = 21, spanning 40.04y | `output/curve.csv` |
-| self-consistency | max reproduction error **4.91e-11 bp** vs 0.01 bp tolerance | `output/par_rate_check.csv` |
-| held-out strip | 6 SR1 quotes excluded as pillars, repriced at **12.7 bp mean / 17.9 bp max** basis | `output/par_rate_check.csv` |
-| sum of KR01 vs parallel DV01 | **0.005%–0.075%** across 7 benchmark swaps | `output/risk_ladder.csv` |
+`curves/` builds a 40-year SOFR OIS curve from 7 SR3 futures and 14 OIS swaps.
+The sequential bootstrap uses daily simple SOFR compounding on ACT/360,
+Modified Following date adjustment, T+2 effective dates, and a two-business-day
+payment lag. Its outputs include discount factors, zero rates, segment forwards,
+par-rate checks, and bump-and-rebootstrap key-rate risk.
 
-![SOFR curve](curves/output/curve.png)
+### 2. Volatility surface
 
-**The degenerate ladder is the finding, not a bug.** A $100mm 10Y par swap carries
-$84,256 of parallel DV01 and **100%** of its gross key-rate exposure on the 10Y
-pillar — bump any other input and the later swaps rebootstrap to hold their own par
-rates, so the 10Y par rate cannot move. Off-pillar maturities are what produce a
-hedgeable ladder: 11Y_par puts 54.4% on its largest pillar, 1Y_par 21.2%.
-
-**Front-contract gearing.** 82 of SR3H26's 91 reference days are already fixed, so a
-1 bp move in the quote must be absorbed by the remaining 9-day stub — a **10.03x**
-gearing. On the 1Y benchmark it picks up **$1,947** of KR01 against $2,505 for the
-full-quarter contract behind it, while spanning nine days of free curve instead of 91.
-
-### surface/ — SABR calibration and static-arbitrage diagnostics
-
-| expiry | T (y) | quotes | RMSE (bp) | ρ | ν |
-|---|---|---|---|---|---|
-| 2026-09-18 | 0.11 | 107 | 9.45 | −0.503 | 2.152 |
-| 2026-10-16 | 0.19 | 105 | 11.52 | −0.548 | 1.772 |
-| 2026-12-18 | 0.36 | 48 | 15.85 | −0.577 | 1.334 |
-| 2027-03-19 | 0.61 | 67 | 11.88 | −0.612 | 0.978 |
-| 2027-06-17 | 0.86 | 84 | 13.30 | −0.639 | 0.776 |
-| 2027-09-17 | 1.11 | 96 | 12.45 | −0.633 | 0.667 |
-| 2027-12-17 | 1.36 | 112 | 23.27 | −0.627 | 0.572 |
-| 2028-12-15 | 2.36 | 116 | **57.13** | −0.617 | 0.319 |
-| **all** | | **735** | **24.37** (14.58 excl. 2.36y) | | |
+`surface/` converts SPY option bid/ask mids to Black-76 implied volatilities and
+calibrates Hagan SABR independently across eight expiries with beta fixed at
+0.5. The cached snapshot holds ten expiries and
+[`surface/tools/smile_roughness.py`](surface/tools/smile_roughness.py) re-derives
+why two are left out: 2028-06-16 on quote quality (RMS implied-vol second
+difference 0.4275 vol points, 5.9x the roughest expiry that is kept), and
+2026-08-21 on scope rather than quality — it is the cleanest smile in the file,
+but the downstream book's shortest leg reaches T = 0.114990y on the final
+valuation date, exactly the first calibrated pillar, so a 14-day pillar is never
+interpolated. Calibrating it anyway fits at 6.59 bp with every arbitrage check
+still at zero. Forwards are inferred from put-call parity while discount factors are
+pinned from the rate input. The calibrated surface is checked for butterfly and
+calendar arbitrage before being passed downstream.
 
 ![SABR smile fit](surface/output/smile_fit.png)
 
-| diagnostic | result |
-|---|---|
-| butterfly, ±6000 bp grid | 0 negative density points |
-| butterfly, ±9000 bp stress grid | 0 negative |
-| butterfly, 400k-point log grid to K/F = 1e-3 | 0 negative, 0 of 8 expiries |
-| calendar (10 log-moneyness × 7 expiry pairs) | 0 of 70 violated |
-| ATM reproduction (α from the ATM cubic) | max 1.1e-12 bp |
+### 3. Option valuation and Greeks
 
-The deep-wing probe exists because a symmetric bp grid bottoms out at 0.10·F and
-structurally cannot reach SABR's known low-strike failure. The detector is
-positive-controlled: `tests/test_sanity.py` forces ν = 2.0 and a 10y rates case and
-confirms it fires.
+`attribution/` maps the calibrated SABR term structure into a daily market
+state and prices each European option leg with Black-Scholes. It calculates
+standard and SABR-adjusted delta, gamma, vega, theta, rho, vanna, and volga.
+Portfolio exposures are obtained by aggregating the eight priced legs; vega is
+also measured by expiry bucket through bump-and-reprice.
 
-**ρ is not monotone** — it turns at T = 0.86y. Reported, not smoothed. β is fixed at
-0.5, near-degenerate with ρ.
+### 4. Portfolio aggregation and repricing
 
-### attribution/ — Greek P&L explain on an 8-leg book
+The portfolio is valued leg by leg, then aggregated into book value and risk
+sensitivities. The same portfolio pricer is reused by `risk/` as a revaluation
+callback, so Greek approximations and full-repricing results are compared on a
+consistent valuation basis.
 
-255 daily moves, 2025-08-01 → 2026-08-07, spot +24.4%, 5 days beyond |2%|, mean
-|daily P&L| $22,031.
+## Key Results
 
-| variant | mean \|unexplained\| | % of \|P&L\| | R² |
-|---|---|---|---|
-| 1st order (δ, vega, θ, ρ) | $348 | 1.58% | 0.99923 |
-| **+ gamma, vanna, volga** | **$43** | **0.196%** | **0.999986** |
-| single vol number, 2nd order | $3,795 | 17.2% | 0.9461 |
-| bucketed vega, 2nd order | $2,965 | 13.5% | 0.9665 |
-
-Second-order terms cut the residual **87.6%**. Vega granularity matters far more
-than Greek order: one vol number leaves $3,795, a 4-bucket ladder $2,965 (−21.9%,
-stable across κ = 2/4/8), per-leg vol $43.
-
-![Residual diagnostics](attribution/output/residual_diagnostics.png)
-
-**Deltas disagree about which test they win.**
-
-| delta | attribution residual | delta-hedged P&L std |
+| Stage | Verified result | Evidence |
 |---|---|---|
-| Black–Scholes | **$43** | $5,454 |
-| SABR | $152 | **$3,311 (−39.3%)** |
-| Bartlett | $328 | $6,943 (+27.3%) |
+| SOFR curve | **21 curve pillars** reproduce their input quotes to **4.91e-11 bp**, versus a **0.01 bp** tolerance | [`curves/output/par_rate_check.csv`](curves/output/par_rate_check.csv) |
+| SABR surface | **735 SPY quotes across 8 expiries**; aggregate RMSE **24.4 bp** | [`surface/output/calibrated_params.csv`](surface/output/calibrated_params.csv) |
+| Surface fit disclosure | RMSE is **14.58 bp** excluding the 2.36y expiry; that expiry fits poorly at **57.1 bp** and is retained rather than hidden | [`surface/README.md`](surface/README.md) |
+| P&L attribution | Second-order Greeks reduce mean unexplained P&L from **$348 to $43** (**87.6%**), with **R² 0.99999** | [`attribution/output/attribution_summary.csv`](attribution/output/attribution_summary.csv) |
+| Portfolio risk | 1-day 99% full-revaluation VaR **$65,588** and ES **$80,219** on a **$1.66M** book | [`risk/output/var_summary.csv`](risk/output/var_summary.csv) |
+| Reproducibility | A clean clone re-running all four stages leaves `git status` clean: every committed output regenerates **byte for byte**, figures included | `make run` |
 
-SABR delta makes the attribution *worse* and the hedge *better* — the attribution
-absorbs a bad delta into its vega term, a hedge cannot. Bartlett's delta assumes a
-leverage effect the symmetric EWMA surface does not have; supplying one (GJR)
-improves its hedge std 17.7% (6,943 → 5,716), which is the predicted direction.
+## Representative Portfolio Case
 
-FRTB PLA: **11 of 11 variants pass** (2nd-order variance ratio 0.0013% vs the 20%
-limit, mean ratio 0.05%). That pass is close to guaranteed by construction —
-risk-theoretical and hypothetical P&L come from the same surface — and is reported
-as a mechanism check, not a validation.
+The central case is an eight-leg SPY option book containing calls and puts
+across multiple strikes, expiries, and long/short positions. It connects every
+stage of the repository:
 
-### risk/ — VaR, ES, backtest, stress
+1. Bootstrap discount factors and forward rates from the SOFR curve.
+2. Calibrate the SPY SABR surface and assign each leg an implied volatility.
+3. Price every leg and aggregate the portfolio value and Greeks.
+4. Explain daily changes in book value with delta, gamma, vega, theta, rho,
+   vanna, and volga.
+5. Apply historical and hypothetical shocks through full leg-level repricing.
+6. Aggregate the repriced loss distribution into VaR, ES, and stress results.
 
-Snapshot 2026-08-07, book value $1,662,294. `revalue(0,0,0) = 0` exactly; 64,865
-repricing calls per run.
+The 2026-08-07 snapshot has a portfolio value of **$1,662,294**. Its valuation,
+exposures, attribution, and risk measures are therefore different views of the
+same book rather than disconnected demonstrations.
 
-| 1-day estimator | 95% | 97.5% | 99% | 99% ES |
-|---|---|---|---|---|
-| historical | 53,279 | 65,709 | 70,650 | 79,784 |
-| parametric (δ-Γ-vega) | 49,135 | 58,548 | 69,492 | 79,615 |
-| filtered HS (λ 0.94) | 64,054 | 71,016 | **131,686** | 142,883 |
-| **full revaluation** | 45,545 | 53,033 | **65,588** | **80,219** |
+![Unexplained P&L diagnostics](attribution/output/residual_diagnostics.png)
 
-![Risk](risk/output/risk_heatmap.png)
+## Pricing vs Approximation
 
-**Two adverse results.**
+The repository uses approximation as a benchmark against repricing, not as a
+substitute for it.
 
-1. **The rolling 125-day historical VaR fails Kupiec** at 95% (12 exceptions vs
-   6.50 expected, p = 0.047) and 97.5% (9 vs 3.25, p = 0.008) — Basel red at both.
-   Christoffersen finds no clustering (p = 0.90 / 1.00), so the failure is level,
-   not timing. Six tests are run across the three confidence levels: Holm-adjusted,
-   the 97.5% rejection survives (p = 0.046) and the 95% one does not (p = 0.233),
-   so the conclusion rests on the 97.5% result and on the exception counts, which
-   no adjustment touches. The tested sample is 130 days, below the 250-day Basel
-   window, so the count test has low power either way. That estimator is not fit
-   for limit-setting at those levels as configured.
-2. **The expected "material gap" between Taylor and repricing did not appear at
-   1-day sizes** — largest parametric vs full-reval gap is −9.4%. The same
-   expansion misses by a **median 32.2%** and up to **89.2%** at stress sizes, and
-   flips sign on one scenario. Small gap at VaR sizes and large gap under stress is
-   one finding, not two contradictory ones.
+- **First-order vs second-order attribution.** Adding gamma, vanna, and volga
+  reduces mean unexplained daily P&L from $348 to $43, an 87.6% reduction.
+- **Standard vs SABR delta.** Adding the smile response term to Black-Scholes
+  delta reduces delta-hedged P&L volatility from **$5,454 to $3,311**, a 39.3%
+  reduction.
+- **Taylor vs full repricing at one-day shocks.** The delta-gamma-vega
+  approximation stays within **6.0–10.4%** of full-revaluation VaR across the 95%,
+  97.5% and 99% levels, measured as a fraction of the repriced number; `run_risk.py`
+  prints the same three gaps against the parametric number instead (5.6–9.4%).
+  Daily shocks are small enough for the local expansion to work well.
+- **Taylor vs full repricing under stress.** Across eleven stress scenarios,
+  the same expansion has a **32% median absolute error** and exceeds **100%** in two of them.
+  The comparison locates the approximation's useful range: strong locally,
+  materially less reliable at stress magnitudes.
 
-| stress (full repricing) | P&L | % of book | Taylor error |
-|---|---|---|---|
-| 2022 rates repricing (−25%, +15 pt, +400 bp) | −$785,466 | −47.3% | −41.5% |
-| Lehman / GFC (−30%, +45 pt, −150 bp) | −$607,146 | −36.5% | −78.3% |
-| COVID crash (−34%, +60 pt, −150 bp) | −$484,394 | −29.1% | −89.2% |
-| Spot −10%, vol unchanged | −$437,670 | −26.3% | +3.3% |
-| Aug 2024 carry unwind (−3%, +38 pt) | −$1,268 | −0.1% | sign flip |
+## Risk & Validation
 
-Worst cell of the 13×13 spot×vol grid is **−$1,582,048 (−95.2% of book) at spot
-−20% / vol −15 pts — interior, not a corner.** A corner-only scenario set misses it.
-Reverse stress: −$100k needs a −3.3% spot move; −$1mm needs −16.0% and −5.25 vol pts.
+`risk/` treats the pricing engine as the foundation for downstream market-risk
+analysis. It implements historical, parametric delta-gamma-vega, filtered
+historical, and full-revaluation VaR/ES; historical and hypothetical stress
+scenarios; a spot-vol grid; reverse stress; and Kupiec and Christoffersen
+backtests.
 
----
+The adverse results remain visible. Historical VaR fails the Kupiec test as
+configured — 12 and 9 exceptions against 6.50 and 3.25 expected at 95% and 97.5%
+— while Christoffersen finds no exception clustering, so the failure is one of
+level rather than timing. Six tests are run across the three confidence levels,
+so they are Holm-adjusted: the 97.5% rejection survives (p = 0.0077 → 0.0462) and
+the 95% one does not (p = 0.0465 → 0.2325). The conclusion rests on the 97.5%
+result and on the exception counts, which no adjustment touches.
 
-## Running it
+Two things the backtest is not. The P&L series it tests is **model-generated** —
+each day is this pipeline's own full revaluation of the book, not a traded result
+— so it is a backtest of the model against itself. And the FRTB
+profit-and-loss attribution variants pass, but risk-theoretical and hypothetical
+P&L share the same surface, so that result is not an independent validation
+either. Governance and SR 11-7-aligned documentation are kept in the
+downstream validation report rather than used as the project's primary identity.
 
-Order matters — each stage reads the previous stage's files.
+![Risk: stress surface, estimator comparison, and VaR backtest](risk/output/risk_heatmap.png)
+
+Full methodology, qualifications, and remediation items:
+[`docs/MODEL_VALIDATION.md`](docs/MODEL_VALIDATION.md).
+
+## System Design / Dependency Chain
+
+```text
+curves/                         surface/
+SR3 + OIS quotes                SPY option chains
+      |                               |
+      v                               v
+SOFR bootstrap                  SABR calibration
+      |                               |
+      +-- curve.csv --------+         +-- calibrated_params.csv --+
+                            |                                    |
+                            v                                    v
+                         attribution/  8-leg SPY book
+                         valuation + Greeks + P&L attribution
+                                      |
+                                      +-- attribution files ------+
+                                      +-- portfolio pricer -------+
+                                                                   v
+                                                                risk/
+                                                        VaR / ES + stress
+```
+
+The four stages hand actual files to later stages:
+
+- `curves/output/curve.csv` supplies rates to the valuation stage. The SABR
+  calibration separately pins discount factors from its cached Treasury-rate
+  inputs when converting option mids to implied volatilities.
+- `surface/output/calibrated_params.csv` supplies the calibrated smile by expiry.
+- `attribution/output/daily_attribution.csv` and exposure files supply the
+  realized attribution history used by risk analysis.
+- `risk/` imports the attribution portfolio pricer for consistent leg-level
+  revaluation under historical and stress shocks.
+
+## Repository Structure / Running
+
+| Directory | Responsibility | Detail |
+|---|---|---|
+| `curves/` | SOFR OIS bootstrap, discount factors, forwards, swap pricing, key-rate DV01 | [`curves/README.md`](curves/README.md) |
+| `surface/` | SPY implied-volatility construction, SABR calibration, arbitrage diagnostics | [`surface/README.md`](surface/README.md) |
+| `attribution/` | Option valuation, Greeks, bucket vegas, daily P&L attribution, FRTB PLA | [`attribution/README.md`](attribution/README.md) |
+| `risk/` | VaR/ES, full repricing, backtesting, stress and reverse stress | [`docs/MODEL_VALIDATION.md`](docs/MODEL_VALIDATION.md) |
+
+Run the stages in dependency order:
 
 ```bash
-pip install -r requirements.txt
-cd curves && python3 run.py            # 3s
-cd ../surface && python3 run.py        # 5s
-cd ../attribution && python3 run.py    # 40s
-cd .. && python3 risk/run_risk.py      # 74s
-python3 -m pytest -q                   # 65 checks: 63 invariants + 2 cross-module
+pip3 install -r requirements.txt
+
+cd curves && python3 run.py            # ~3s
+cd ../surface && python3 run.py        # ~5s
+cd ../attribution && python3 run.py    # ~40s
+cd .. && python3 risk/run_risk.py      # ~74s
+
+python3 -m pytest -q                   # 63 module invariants + 2 cross-module checks
 cd surface && python3 tools/smile_roughness.py   # re-derives the expiry exclusions
 ```
 
-Every module caches its market-data pull, so a rerun reproduces the numbers above
-exactly; `--live` re-pulls from yfinance and will differ. Verified: a full rerun in
-a fresh clone left `git status` clean, PNGs included.
+`make install`, `make run` and `make test` wrap the same commands.
 
-| path | contents |
-|---|---|
-| `curves/` | bootstrap, swap pricing, key-rate DV01 by bump-and-rebootstrap |
-| `surface/` | SABR calibration, butterfly / calendar / deep-wing diagnostics |
-| `attribution/` | 8-leg book, Greek attribution, FRTB PLA, delta and vega experiments |
-| `risk/` | 4 VaR/ES estimators, Kupiec + Christoffersen, stress grid, reverse stress |
-| `docs/MODEL_VALIDATION.md` | SR 11-7-structured validation report |
-
----
+Dependencies are pinned in [`requirements.txt`](requirements.txt): `numpy`,
+`scipy`, `pandas`, `matplotlib`, `pytest`, and `yfinance` for `--live` only. Each
+module reads its cached market-data snapshot by default, so a rerun reproduces
+every number above exactly; `--live` refreshes market data and will produce
+different results.
 
 ## Limitations
 
-Each is a known, quantified, uncorrected choice — not residual uncertainty.
+- **Single-date market inputs.** The curve and SABR surface are calibrated to
+  individual snapshots rather than a fully historical curve/surface dataset.
+- **SABR specification.** Beta is fixed at 0.5, and the retained 2.36y expiry
+  has a visibly weaker 57.1 bp fit.
+- **Frozen smile dynamics.** Daily attribution evolves the ATM volatility level
+  while holding SABR rho and nu fixed, so changing skew and vol-of-vol regimes
+  are not represented.
+- **Simplified volatility risk.** Risk scenarios apply a parallel volatility
+  shift rather than a full term-structure or smile deformation.
+- **Backward-applied surface.** The single SABR calibration is dated the *last*
+  day of the P&L window and is applied over the preceding year by scaling its ATM
+  level with EWMA realised volatility. The volatility level is therefore a
+  deterministic function of the spot path, which is what the vega and vanna terms
+  are charged with; the attribution stays an identity, but the size of those two
+  contributions reflects that construction.
+- **Non-independent validation.** Repricing and Greek approximations reuse the
+  same model, the backtested P&L series is produced by that model rather than
+  traded, and this validation was performed by the model developer.
 
-**Curve.** Convexity set to 0.0 bp (a real bias inside 2Y, exposed as a config knob).
-The 6 SR1 quotes are not reproduced: every SR1 month sits inside an SR3 quarter, so
-forcing both strips onto the pillars pins the redundancy onto residual stubs
-(adjacent forwards of 1.83% and 4.40%). Single valuation date, so nothing downstream
-has curve history.
-
-**Surface.** Single calibration date. The 2.36y expiry does not fit (57.1 bp vs
-9.4–23.3 bp). Of 10 expiries in the raw snapshot, 8 are calibrated, and
-`surface/tools/smile_roughness.py` re-derives both exclusions: 2028-06-16 is
-dropped for quote quality (RMS IV second difference 0.4275 vol pts, 5.9x the
-roughest expiry that is kept), while 2026-08-21 is dropped for scope and not for
-quality — it is the cleanest smile in the file, but the downstream book's shortest
-leg reaches T = 0.114990y, exactly the first calibrated pillar, so a 14-day pillar
-is never interpolated. Calibrating it anyway fits at 6.59 bp with every arbitrage
-check still at zero. β fixed at 0.5.
-
-**Attribution.** ρ and ν are frozen through time; only the ATM level is evolved,
-scaled by EWMA realised vol. The surface therefore cannot represent skew steepening
-in a selloff. The calibration date is the *last* day of the P&L window, so the
-surface shape is applied backwards over the prior year — the attribution itself is
-an identity under that surface, but the vol path is a deterministic function of the
-spot path, so vega and vanna contributions are partly mechanical. Bucket-vega
-additivity is exact by construction (each leg sits in one bucket), not as a finding.
-
-**Risk.** One vol risk factor — a parallel level shift — is the binding limitation:
-bucket vegas largely cancel (on 2026-04-07: 0 / +30,085 / −41,536 / +32,499 per
-point against a parallel +21,049), so VaR and stress are downward-biased for any
-term-structure twist. √t scaling needs iid returns and a locally linear book; this
-book's gamma changes sign 19 times. Shocked vols are clipped at a 3% floor and the
-worst grid cell sits on that floor, so it is a lower bound. The P&L series being
-backtested is model-generated, not traded, and full revaluation shares its pricer
-with the approximations it benchmarks — it bounds Taylor error, not pricing-model
-error. This is a self-validation and does not meet SR 11-7 independence.
-
-Not a production risk system. Open items are tracked in `docs/MODEL_VALIDATION.md` §7.
+Detailed module caveats, backtest qualifications, stress-floor effects, and
+open validation items are documented in
+[`docs/MODEL_VALIDATION.md`](docs/MODEL_VALIDATION.md).
