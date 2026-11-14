@@ -127,14 +127,14 @@ The adverse results remain visible. Historical VaR fails the Kupiec test as
 configured — 12 and 9 exceptions against 6.50 and 3.25 expected at 95% and 97.5%
 — while Christoffersen finds no exception clustering, so the failure is one of
 level rather than timing. Six tests are run across the three confidence levels,
-so they are Holm-adjusted: the 97.5% rejection survives (p = 0.0077 → 0.0462) and
+so they are Holm-adjusted: the 97.5% rejection survives (p = 0.0077 → 0.0463) and
 the 95% one does not (p = 0.0465 → 0.2325). The conclusion rests on the 97.5%
 result and on the exception counts, which no adjustment touches.
 
 Two things the backtest is not. The P&L series it tests is **model-generated** —
 each day is this pipeline's own full revaluation of the book, not a traded result
-— so it is a backtest of the model against itself. And the FRTB
-profit-and-loss attribution variants pass, but risk-theoretical and hypothetical
+— so it is a backtest of the model against itself. And the 2016 FRTB
+variance-ratio test passes on all its variants, but risk-theoretical and hypothetical
 P&L share the same surface, so that result is not an independent validation
 either. Governance and SR 11-7-aligned documentation are kept in the
 downstream validation report rather than used as the project's primary identity.
@@ -183,7 +183,7 @@ The four stages hand actual files to later stages:
 |---|---|---|
 | `curves/` | SOFR OIS bootstrap, discount factors, forwards, swap pricing, key-rate DV01 | [`curves/README.md`](curves/README.md) |
 | `surface/` | SPY implied-volatility construction, SABR calibration, arbitrage diagnostics | [`surface/README.md`](surface/README.md) |
-| `attribution/` | Option valuation, Greeks, bucket vegas, daily P&L attribution, FRTB PLA | [`attribution/README.md`](attribution/README.md) |
+| `attribution/` | Option valuation, Greeks, bucket vegas, daily P&L attribution, 2016 FRTB variance-ratio test | [`attribution/README.md`](attribution/README.md) |
 | `risk/` | VaR/ES, full repricing, backtesting, stress and reverse stress | [`docs/MODEL_VALIDATION.md`](docs/MODEL_VALIDATION.md) |
 
 Run the stages in dependency order:

@@ -38,7 +38,8 @@ from src.surface import build_surface, load_sabr_params               # noqa: E4
 from stress import (HISTORICAL, HYPOTHETICAL, reverse_stress,         # noqa: E402
                     run_scenarios, stress_grid)
 from var import (backtest_var, filtered_historical_var,               # noqa: E402
-                 full_reval_var, historical_var, parametric_var)
+                 full_reval_var, historical_var, holm_family,
+                 parametric_var)
 
 OUT = ROOT / CONFIG["output"]["dir"]            # risk/output -- results
 ATTR_OUT = ATTR / CONFIG["output"]["dir"]       # attribution/output -- inputs
@@ -312,8 +313,50 @@ def stage_backtest(ctx: dict) -> dict:
         lines.extend(block)
         print("\n" + "\n".join(block).rstrip())
 
+    # ---- multiplicity across the whole backtest family --------------------
+    fam = holm_family({alpha: r["bt"] for alpha, r in results.items()})
+    surv = fam[fam["reject_holm"]]
+    lost = fam[fam["reject_raw"] & ~fam["reject_holm"]]
+
+    _hr("3b. MULTIPLICITY -- HOLM ADJUSTMENT ACROSS THE SIX BACKTEST TESTS")
+    fam_lines = [
+        "MULTIPLICITY -- HOLM ADJUSTMENT ACROSS THE SIX BACKTEST TESTS",
+        "",
+        "Two tests at three confidence levels is six p-values deciding one question.",
+        "Read against 0.05 each, the family error rate is about 26%. Holm controls it",
+        "at 5% and is uniformly more powerful than Bonferroni (0.05/6 = 0.00833).",
+        "",
+        fam.to_string(index=False, formatters={
+            "p_raw": "{:.4f}".format, "p_holm": "{:.4f}".format,
+            "expected": "{:.2f}".format}),
+        "",
+        f"  rejections at raw p < 0.05        : {int(fam['reject_raw'].sum())}",
+        f"  rejections surviving Holm at 5%   : {int(fam['reject_holm'].sum())}"
+        + ("  (" + ", ".join(f"{r.test} {r.confidence}" for r in surv.itertuples()) + ")"
+           if len(surv) else ""),
+    ]
+    if len(lost):
+        fam_lines.append(
+            "  withdrawn by the adjustment       : "
+            + ", ".join(f"{r.test} {r.confidence} (p {r.p_raw:.4f} -> {r.p_holm:.4f})"
+                        for r in lost.itertuples()))
+    fam_lines += [
+        "",
+        "The exception COUNTS are untouched by this. Multiplicity is a statement",
+        "about the inferential claim, not about the observation: 12 exceptions",
+        "against 6.50 expected is still 12 exceptions. What the adjustment changes",
+        "is which of the rejections can be reported as a finding on its own.",
+        "",
+    ]
+    for ln in fam_lines:
+        print(ln if ln.startswith("  ") or not ln else "  " + ln)
+    lines.extend(fam_lines)
+
     lines.extend([
         "READING THESE NUMBERS",
+        "  The per-level verdicts above are UNADJUSTED; the family-level Holm",
+        "  result is in the multiplicity section.",
+        "",
         "  Kupiec tests the COUNT of exceptions; Christoffersen tests their",
         "  INDEPENDENCE. A model can pass the first and fail the second -- the right",
         "  number of exceptions, all inside one week -- and that is the failure mode",

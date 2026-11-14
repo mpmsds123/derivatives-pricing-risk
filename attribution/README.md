@@ -41,7 +41,7 @@ Dependencies: `numpy`, `scipy`, `pandas`, `matplotlib`, `yfinance`.
 | mean unexplained, 2nd order | $43 — **0.196%** of daily abs PnL, R² 0.99999 |
 | **residual reduction, 2nd order** | **−87.6%** |
 | largest residual day | **2026-03-31**, +2.91% gap: residual −$1,238 on $140,962 actual (0.88%) |
-| FRTB | **PASS** on all 11 variants (worst variance ratio 5.4% vs 20% limit) |
+| 2016 FRTB variance-ratio test | **PASS** on all 11 variants (worst variance ratio 5.4% vs 20% limit) |
 | vega bucketing gain | **−21.9%** residual (single $3,795 → bucketed $2,965) |
 | SABR delta, hedge std | **−39.3%** vs BS delta ($5,454 → $3,311) |
 
@@ -212,7 +212,7 @@ the second-order term over-states the move — the classic signature of a
 Taylor expansion evaluated at t₀ on a move large enough that the Greeks
 themselves have moved by the close. Full table in `output/worst_days.csv`.
 
-## 4. FRTB-style attribution test
+## 4. The 2016 FRTB variance-ratio test
 
 Three Basel PLA metrics comparing risk-theoretical PnL (Greek explanation) to
 hypothetical PnL (full revaluation). Thresholds: |mean ratio| ≤ 10%, variance

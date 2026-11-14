@@ -1,4 +1,4 @@
-FRTB-STYLE PROFIT-AND-LOSS ATTRIBUTION TEST
+2016 FRTB VARIANCE-RATIO TEST (PROFIT-AND-LOSS ATTRIBUTION)
 ========================================================================
 
 Risk-theoretical PnL = Greek explanation; hypothetical PnL = full reval.

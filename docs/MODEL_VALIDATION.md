@@ -263,13 +263,14 @@ still a model that is wrong about the level.
 
 **Multiplicity.** Six hypothesis tests are run above — Kupiec and Christoffersen
 at each of three confidence levels — and the two rejections are read off raw
-p-values. Holm-adjusting the family moves them apart:
+p-values. Holm-adjusting the family moves them apart (computed by `holm_family` in
+`risk/var.py` and written to `risk/output/var_backtest.txt`):
 
 | test | raw p | Holm-adjusted p | at 5% |
 |---|---:|---:|---|
-| Kupiec 97.5% | 0.0077 | 0.0462 | **reject** |
+| Kupiec 97.5% | 0.0077 | 0.0463 | **reject** |
 | Kupiec 95% | 0.0465 | 0.2325 | retain |
-| Kupiec 99% | 0.2003 | 0.8012 | retain |
+| Kupiec 99% | 0.2003 | 0.8013 | retain |
 | Christoffersen 95% / 97.5% / 99% | 0.9020 / 1.0000 / 1.0000 | 1.0000 | retain |
 
 So the 97.5% rejection survives the correction and the 95% one does not: at
@@ -418,7 +419,7 @@ rejects it at 95% (12 exceptions against 6.50 expected, p = 0.047) and at 97.5%
 no clustering at any level, so the failure is one of level, not of timing.
 
 Six tests are run across the three confidence levels, so the rejections are
-Holm-adjusted in §5.2: the 97.5% rejection survives (adjusted p = 0.046) and
+Holm-adjusted in §5.2: the 97.5% rejection survives (adjusted p = 0.0463) and
 the 95% one does not (adjusted p = 0.233). The conclusion below rests on the
 97.5% result and on the exception counts, which no adjustment touches; the 95%
 rejection is read as directional rather than as a second independent finding.

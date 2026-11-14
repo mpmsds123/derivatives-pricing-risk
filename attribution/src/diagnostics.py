@@ -1,4 +1,4 @@
-"""Residual analysis, FRTB attribution test, and the diagnostic figure.
+"""Residual analysis, the 2016 FRTB variance-ratio test, and the diagnostic figure.
 
 The attribution itself is arithmetic. What it fails to explain, and when, is the
 content -- so everything here is about the residual.
@@ -65,8 +65,8 @@ def frtb_metrics(df: pd.DataFrame) -> dict:
 
 
 def frtb_report(metrics_by_variant: dict[str, dict]) -> str:
-    """Human-readable FRTB report across attribution variants."""
-    L = ["FRTB-STYLE PROFIT-AND-LOSS ATTRIBUTION TEST",
+    """Human-readable 2016 FRTB variance-ratio report across attribution variants."""
+    L = ["2016 FRTB VARIANCE-RATIO TEST (PROFIT-AND-LOSS ATTRIBUTION)",
          "=" * 72, "",
          "Risk-theoretical PnL = Greek explanation; hypothetical PnL = full reval.",
          "Basel thresholds: |mean ratio| <= 10%, variance ratio <= 20%.",

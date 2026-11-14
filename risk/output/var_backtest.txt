@@ -9,7 +9,7 @@ sample: 2025-08-04 .. 2026-08-07  (255 daily moves; 130 tested)
   Kupiec POF   LR =   3.9632   p = 0.0465
   Christoffersen indep. LR =   0.0152   p = 0.9020
   Basel traffic light        : RED   (scaled from the 250-day definition)
-  verdict                    : exception count rejects the model; n=130 is below the 250-day Basel window; the count test has low power here and a green zone is weak evidence
+  verdict                    : exception count rejects the model (unadjusted p); n=130 is below the 250-day Basel window; the count test has low power here and a green zone is weak evidence
 
 --- confidence 97.5%  (alpha = 0.025) ---
   observations tested        : 130
@@ -18,7 +18,7 @@ sample: 2025-08-04 .. 2026-08-07  (255 daily moves; 130 tested)
   Kupiec POF   LR =   7.0991   p = 0.0077
   Christoffersen indep. LR =   0.0000   p = 1.0000
   Basel traffic light        : RED   (scaled from the 250-day definition)
-  verdict                    : exception count rejects the model; n=130 is below the 250-day Basel window; the count test has low power here and a green zone is weak evidence
+  verdict                    : exception count rejects the model (unadjusted p); n=130 is below the 250-day Basel window; the count test has low power here and a green zone is weak evidence
 
 --- confidence 99.0%  (alpha = 0.01) ---
   observations tested        : 130
@@ -29,7 +29,33 @@ sample: 2025-08-04 .. 2026-08-07  (255 daily moves; 130 tested)
   Basel traffic light        : YELLOW   (scaled from the 250-day definition)
   verdict                    : no rejection on either test; n=130 is below the 250-day Basel window; the count test has low power here and a green zone is weak evidence
 
+MULTIPLICITY -- HOLM ADJUSTMENT ACROSS THE SIX BACKTEST TESTS
+
+Two tests at three confidence levels is six p-values deciding one question.
+Read against 0.05 each, the family error rate is about 26%. Holm controls it
+at 5% and is uniformly more powerful than Bonferroni (0.05/6 = 0.00833).
+
+          test confidence  exceptions expected  p_raw p_holm  reject_raw  reject_holm
+        kupiec      97.5%           9     3.25 0.0077 0.0463        True         True
+        kupiec        95%          12     6.50 0.0465 0.2325        True        False
+        kupiec        99%           3     1.30 0.2003 0.8013       False        False
+christoffersen        95%          12     6.50 0.9020 1.0000       False        False
+christoffersen      97.5%           9     3.25 1.0000 1.0000       False        False
+christoffersen        99%           3     1.30 1.0000 1.0000       False        False
+
+  rejections at raw p < 0.05        : 2
+  rejections surviving Holm at 5%   : 1  (kupiec 97.5%)
+  withdrawn by the adjustment       : kupiec 95% (p 0.0465 -> 0.2325)
+
+The exception COUNTS are untouched by this. Multiplicity is a statement
+about the inferential claim, not about the observation: 12 exceptions
+against 6.50 expected is still 12 exceptions. What the adjustment changes
+is which of the rejections can be reported as a finding on its own.
+
 READING THESE NUMBERS
+  The per-level verdicts above are UNADJUSTED; the family-level Holm
+  result is in the multiplicity section.
+
   Kupiec tests the COUNT of exceptions; Christoffersen tests their
   INDEPENDENCE. A model can pass the first and fail the second -- the right
   number of exceptions, all inside one week -- and that is the failure mode

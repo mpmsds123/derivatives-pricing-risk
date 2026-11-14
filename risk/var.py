@@ -243,6 +243,72 @@ def full_reval_var(
 
 
 # --------------------------------------------------------------------------
+# multiplicity across the backtest family
+# --------------------------------------------------------------------------
+
+def holm_adjust(pvalues: dict[str, float]) -> dict[str, float]:
+    """Holm step-down adjustment over a family of p-values.
+
+    Backtesting this book runs two tests -- Kupiec and Christoffersen -- at each
+    of three confidence levels, so six p-values decide whether the estimator is
+    rejected. Reading each against 0.05 inflates the family error rate to about
+    26%: one test in four families would reject something by luck alone. Holm
+    controls it at 5% and is uniformly more powerful than Bonferroni, which is
+    why it is used here rather than the simpler threshold.
+
+    Returned values are adjusted p-values, so the caller still compares against
+    its original alpha. Monotonicity is enforced on the way up, which is what
+    makes a Holm-adjusted p-value interpretable as a p-value.
+    """
+    if not pvalues:
+        return {}
+    items = sorted(pvalues.items(), key=lambda kv: kv[1])
+    m = len(items)
+    out: dict[str, float] = {}
+    running = 0.0
+    for rank, (name, p) in enumerate(items):
+        running = max(running, (m - rank) * float(p))
+        out[name] = min(running, 1.0)
+    return {name: out[name] for name in pvalues}
+
+
+def holm_family(results: dict[float, "BacktestResult"]) -> pd.DataFrame:
+    """Kupiec and Christoffersen at every confidence level, Holm-adjusted.
+
+    Columns: test, confidence, raw p, adjusted p, and whether the rejection
+    survives the adjustment. The exception counts are untouched by any of this
+    -- multiplicity is a statement about the inferential claim, not about the
+    observation.
+    """
+    raw: dict[str, float] = {}
+    meta: dict[str, tuple[str, float, int, float]] = {}
+    for alpha, bt in results.items():
+        conf = 100.0 * (1.0 - alpha)
+        for test, pval in (("kupiec", bt.kupiec_p),
+                           ("christoffersen", bt.christoffersen_p)):
+            key = f"{test}@{conf:g}"
+            raw[key] = float(pval)
+            meta[key] = (test, conf, bt.n_exceptions, bt.expected)
+
+    adj = holm_adjust(raw)
+    rows = []
+    for key, p in raw.items():
+        test, conf, n_exc, expected = meta[key]
+        rows.append({
+            "test": test,
+            "confidence": f"{conf:g}%",
+            "exceptions": n_exc,
+            "expected": round(expected, 2),
+            "p_raw": p,
+            "p_holm": adj[key],
+            "reject_raw": bool(p < 0.05),
+            "reject_holm": bool(adj[key] < 0.05),
+        })
+    df = pd.DataFrame(rows).sort_values("p_raw").reset_index(drop=True)
+    return df
+
+
+# --------------------------------------------------------------------------
 # backtest -- Kupiec POF and Christoffersen independence
 # --------------------------------------------------------------------------
 
@@ -319,9 +385,9 @@ def backtest_var(
 
     verdict = []
     if p_pof < 0.05:
-        verdict.append("exception count rejects the model")
+        verdict.append("exception count rejects the model (unadjusted p)")
     if p_ind < 0.05:
-        verdict.append("exceptions are clustered")
+        verdict.append("exceptions are clustered (unadjusted p)")
     if not verdict:
         verdict.append("no rejection on either test")
     if n < 250:
