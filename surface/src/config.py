@@ -17,8 +17,22 @@ CONFIG: dict[str, Any] = {
         "snapshot_dir": "data/raw",
         "asof": "2026-08-07",
         # Third-Friday expiries carry the deepest open interest on SPY.
-        # 2028-06-16 was pulled but excluded: its IV second-difference roughness
-        # is 0.445 vol pts against <0.07 elsewhere (stale LEAPS quotes).
+        # The snapshot holds 10 expiries; 8 are calibrated. Both exclusions are
+        # reproducible with `python3 tools/smile_roughness.py`, which prints the
+        # RMS implied-vol second difference per expiry in vol points:
+        #
+        #   2028-06-16 is excluded for quote quality -- roughness 0.4275 vol pts
+        #     against a worst calibrated expiry of 0.0727, i.e. 5.9x the dirtiest
+        #     smile that is kept (stale LEAPS quotes).
+        #   2026-08-21 is excluded for scope, NOT for quality -- it is the
+        #     cleanest smile in the file (roughness 0.0133). The surface is
+        #     consumed by a one-year P&L attribution whose shortest option leg
+        #     reaches T = 0.114990y on the final valuation date, which is exactly
+        #     the first calibrated pillar, so a 14-day pillar is never
+        #     interpolated and would only move the flat-extrapolation floor.
+        #     Checked rather than assumed: calibrating it fits at 6.59 bp RMSE
+        #     with nu = 2.87 inside its bound and leaves every butterfly and
+        #     calendar check at zero (9 expiries, 789 quotes, aggregate 23.08 bp).
         "expiries": [
             "2026-09-18",
             "2026-10-16",
