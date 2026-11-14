@@ -57,7 +57,7 @@ and a reverse stress test — all applied by full repricing (§4.3).
 | Spot path | yfinance daily close | 2025-08-01 .. 2026-08-07 (256 valuation dates, 255 daily moves; EWMA burn-in from 2024-06-01) | Close-to-close only; no intraday path |
 | Implied vol | SABR surface (Project 1) evolved per §5.1 of the attribution README | Single calibration 2026-08-07: 8 expiries, T 0.115y–2.357y, ATM 13.23%–19.72%, ρ −0.639..−0.503, ν 0.319..2.152, β = 0.5 | Single-date calibration; ρ and ν frozen |
 | Discount curve | Bootstrapped SOFR OIS (Project 2) + ^IRX level overlay | Curve as-of 2026-03-09: 21 pillars, 0.025y–40.04y, zeros 3.3037%–3.8176%; overlay spans the P&L window | Single snapshot; no curve history |
-| Realised P&L | `daily_attribution.csv` from the attribution pipeline | 255 daily moves | — |
+| Daily P&L series | `daily_attribution.csv` from the attribution pipeline | 255 daily moves | **Model-generated, not traded.** Each day's P&L is this pipeline's own full revaluation of the book, not a realised trading result, so §5.2 backtests the model against itself — see §7.2 |
 
 **Sample adequacy.** 255 observations at 99% implies an expected 2.55 tail
 observations. ES at that confidence is therefore an average over roughly
@@ -261,6 +261,24 @@ favourable half of the backtest and it should not be read as offsetting the
 other half: independent exceptions arriving at three times the promised rate is
 still a model that is wrong about the level.
 
+**Multiplicity.** Six hypothesis tests are run above — Kupiec and Christoffersen
+at each of three confidence levels — and the two rejections are read off raw
+p-values. Holm-adjusting the family moves them apart:
+
+| test | raw p | Holm-adjusted p | at 5% |
+|---|---:|---:|---|
+| Kupiec 97.5% | 0.0077 | 0.0462 | **reject** |
+| Kupiec 95% | 0.0465 | 0.2325 | retain |
+| Kupiec 99% | 0.2003 | 0.8012 | retain |
+| Christoffersen 95% / 97.5% / 99% | 0.9020 / 1.0000 / 1.0000 | 1.0000 | retain |
+
+So the 97.5% rejection survives the correction and the 95% one does not: at
+p = 0.0465 it is one of six tests and sits a hair under an uncorrected 0.05
+threshold. The 97.5% result is therefore the one that carries the conclusion,
+and the 95% result should be read as directional. The exception *counts* — 12
+against 6.50 and 9 against 3.25 — are unaffected by any of this; it is the
+inferential claim that needed the adjustment, not the observation.
+
 Mechanism, so the failure is diagnosed rather than merely recorded: the 125-day
 window is half the Basel length and was chosen so that a 255-move sample leaves
 130 days to test. A short window tracks a vol regime shift quickly but holds
@@ -399,9 +417,16 @@ rejects it at 95% (12 exceptions against 6.50 expected, p = 0.047) and at 97.5%
 (9 against 3.25, p = 0.008), with Basel red zones at both. Christoffersen finds
 no clustering at any level, so the failure is one of level, not of timing.
 
+Six tests are run across the three confidence levels, so the rejections are
+Holm-adjusted in §5.2: the 97.5% rejection survives (adjusted p = 0.046) and
+the 95% one does not (adjusted p = 0.233). The conclusion below rests on the
+97.5% result and on the exception counts, which no adjustment touches; the 95%
+rejection is read as directional rather than as a second independent finding.
+
 **The rolling-window historical estimator is therefore not fit to size risk at
-95% or 97.5% as configured, and should not be used for limit-setting at those
-levels until the window length is revisited.** The 99% figure is not rejected
+97.5% as configured — and is directionally under-stating risk at 95% — so it
+should not be used for limit-setting at either level until the window length is
+revisited.** The 99% figure is not rejected
 but sits in the yellow zone at 3 exceptions against 1.30 expected, on a
 130-day tested sample whose low power is stated in §5.2 — non-rejection there is
 weak evidence, not a pass.
@@ -412,7 +437,7 @@ resolving it means re-specifying the estimation window and re-running the
 backtest, and a validation report that quietly retuned a parameter until the
 model passed would not be a validation.
 
-**Three limitations of this validation itself, stated because a validation that
+**Four limitations of this validation itself, stated because a validation that
 does not bound its own reliability is not a validation:**
 
 1. **Independence.** SR 11-7 requires effective challenge from parties
@@ -435,6 +460,20 @@ does not bound its own reliability is not a validation:**
    It says nothing about how the exposure evolves, and the §5.5 figures should
    not be carried forward to a later position without a rerun.
 
+4. **The vol surface is applied backwards, and the vol path is not market
+   data.** The only calibration is dated 2026-08-07, the *last* day of the P&L
+   window, and it is applied over the preceding year by scaling its ATM level
+   with EWMA realised vol. Two consequences. First, the surface shape used on
+   2025-08-01 was not observable then, so the P&L history is not a real-time
+   reconstruction. Second, because the vol level is a deterministic function of
+   the spot path, every day's Δσ is mechanically tied to its ΔS — which is
+   exactly what the vega and vanna terms are charged with. The attribution
+   itself remains an identity (ground truth and explanation use the same
+   surface, which is §7.2), but the *size* of the vega and vanna contributions
+   reflects that construction and should not be read as a measurement of how
+   SPY implied vol actually moved. A surface time series would settle it; one
+   calibration cannot.
+
 **Open items:**
 - Extend risk factors from one vol level to four vega buckets (§4.1)
 - Replace √t scaling with overlapping-window empirical multi-day P&L (§4.2)
@@ -443,6 +482,9 @@ does not bound its own reliability is not a validation:**
 - Re-specify the backtest estimation window and re-run Kupiec; the 125-day
   choice was driven by sample length, not by an accuracy argument (§5.2, §7)
 - Quote the filtered-HS 99% figure as a λ range, not a point estimate (§5.3)
+- Calibrate the surface on a time series of dates rather than one, so the P&L
+  history stops depending on a surface shape observed only at its end, and the
+  vol path stops being a deterministic function of the spot path (§7.4)
 - Obtain independent review before any use beyond personal research
 
 ---
