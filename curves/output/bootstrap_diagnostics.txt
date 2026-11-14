@@ -111,8 +111,9 @@ error is the SR1-vs-SR3 basis, not a bootstrap failure.
 
   mean |basis| = 12.71 bp, max |basis| = 17.92 bp
   For reference, forcing both strips onto the pillars (futures_source='ALL')
-  drives these to zero but yields adjacent forward segments of 1.83% and
-  4.40% -- the disagreement has to go somewhere.
+  drives these to zero but drives the futures segment forwards into a
+  1.83%-4.40% sawtooth, against 3.18%-3.54% here -- the disagreement has
+  to go somewhere.
 
 ==============================================================================
 FUTURES / SWAP HANDOFF

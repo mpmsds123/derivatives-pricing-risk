@@ -73,8 +73,8 @@ def bs_greeks(S: float, K: float, T: float, r: float, q: float, sigma: float,
     """Analytic Black-Scholes Greeks.
 
     vanna and volga have closed forms and are computed here as the reference
-    values; the spec's finite-difference versions live in greeks.py and are
-    cross-checked against these (see tests/test_sanity.py).
+    values; the spec's finite-difference versions are `fd_vanna` / `fd_volga`
+    below and are cross-checked against these (see tests/test_sanity.py).
     """
     if T <= 0.0 or sigma <= 0.0:
         intrinsic = max((S - K) if opt == "C" else (K - S), 0.0)

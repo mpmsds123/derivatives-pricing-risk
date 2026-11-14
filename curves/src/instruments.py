@@ -223,8 +223,9 @@ def build_instruments(
     an SR3 reference quarter, so the two strips are mutually redundant. Using
     both as pillars still reproduces every quote to machine precision, but it
     forces the entire SR1-vs-SR3 disagreement onto whatever short residual stub
-    is left over -- producing adjacent forward segments of 1.83% and 4.40%,
-    which is an artefact, not a rate view.
+    is left over -- driving the futures segment forwards into a 1.83%-4.40%
+    sawtooth against 3.18%-3.54% under the SR3 strip alone, which is an
+    artefact of the instrument set, not a rate view.
 
     `cfg["futures_source"]` picks the resolution; the discarded strip is
     returned as a cross-check so its reproduction error can be reported as the

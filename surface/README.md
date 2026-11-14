@@ -22,7 +22,7 @@ Dependencies: `numpy`, `scipy`, `pandas`, `matplotlib`, `yfinance`.
 | expiries calibrated | 8, T = 0.115y … 2.357y |
 | calibration points | **735** (from 3,963 raw quotes) |
 | aggregate RMSE | **24.4 bp** (RMS across expiries); 26.4 bp point-weighted |
-| aggregate RMSE, excl. the 2.36y expiry | **14.8 bp** |
+| aggregate RMSE, excl. the 2.36y expiry | **14.58 bp** |
 | best / worst expiry RMSE | 9.4 bp (0.11y) / 57.1 bp (2.36y) |
 | max absolute error | **119.2 bp**, at 2028-12-15, strike offset +6842bp |
 | ATM reproduction error | **1.1e-12 bp** — exact, by construction |
@@ -286,7 +286,7 @@ the null result is traceable to numbers rather than asserted.
    formula is an asymptotic expansion whose error grows in `T` and in
    `|ln(K/F)|`, and that expiry spans a 10,466bp strike range where the market
    smile drops steeply and then turns *up* past +5000bp — a shape a
-   two-parameter smile cannot represent. Excluding it, aggregate RMSE is 14.8bp.
+   two-parameter smile cannot represent. Excluding it, aggregate RMSE is 14.58bp.
 
 3. **Single snapshot.** One Friday close. No statement is made about parameter
    stability through time, only across the term structure.

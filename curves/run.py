@@ -286,9 +286,12 @@ def write_diagnostics(
             "(futures_source='ALL')"
         )
         lines.append(
-            "  drives these to zero but yields adjacent forward segments of 1.83% and"
+            "  drives these to zero but drives the futures segment forwards into a"
         )
-        lines.append("  4.40% -- the disagreement has to go somewhere.")
+        lines.append(
+            "  1.83%-4.40% sawtooth, against 3.18%-3.54% here -- the disagreement has"
+        )
+        lines.append("  to go somewhere.")
 
     section("FUTURES / SWAP HANDOFF")
     last_fut = [e for e in log if e["kind"] in ("SR1", "SR3")][-1]
@@ -527,7 +530,7 @@ OIS discount curve and the two were linked by basis swaps.
 | interpolation | piecewise-constant overnight forward between pillars | log-cubic on discount factors gives smoother forwards but turns the bootstrap into a global solve; piecewise-constant keeps it a sequential one-unknown-at-a-time root find, which is stable and debuggable |
 | compounding | daily simple compounding, `CF = prod(1 + f*d/360)` | the continuous form `DF(t2)=DF(t1)exp(-f*dt)` is what a generic curve library uses, but SOFR legally accrues by daily simple compounding on ACT/360; the two differ at O(f^2*dt) which is ~0.2bp/yr at 4% -- enough to swamp a self-consistency check reported to 0.01bp |
 | alpha of the short end | SR3H26 determines the {int(fd['unknown_days'])}-day stub from the valuation date to the first IMM | the alternative is to hardcode the last published fixing as a flat "spot" stub; letting the front contract imply it removes a magic number and keeps the front quote exactly reproduced |
-| instrument overlap | SR3 strip as pillars; the {len(cross_check)} SR1 quotes are repriced off the finished curve and reported as a basis | using both strips as pillars also reproduces every quote exactly, but every SR1 month here sits *inside* an SR3 quarter, so the redundancy gets pinned onto residual stubs -- the "ALL" build gives adjacent forward segments of 1.83% and 4.40%. That is an artefact of the instrument set, not a rate view. Switchable via `futures_source` |
+| instrument overlap | SR3 strip as pillars; the {len(cross_check)} SR1 quotes are repriced off the finished curve and reported as a basis | using both strips as pillars also reproduces every quote exactly, but every SR1 month here sits *inside* an SR3 quarter, so the redundancy gets pinned onto residual stubs -- the "ALL" build drives the futures segment forwards into a 1.83%-4.40% sawtooth, against 3.18%-3.54% here. That is an artefact of the instrument set, not a rate view. Switchable via `futures_source` |
 | convexity | ignored, set to {cfg['convexity_adjustment_bp']}bp | futures are margined daily and swaps are not, so futures rates sit above forward rates; the effect is a few tenths of a bp inside 2Y and is dominated by the bid/offer, but it is a real bias and is exposed as a config knob rather than buried |
 | risk | bump input quotes, rebootstrap, reprice | perturbing the output curve directly is wrong here: a 1bp move in a futures price does not map to a 1bp move in that segment's forward once realized fixings and overlapping contracts are involved |
 
