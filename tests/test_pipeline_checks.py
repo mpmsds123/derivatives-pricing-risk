@@ -1,7 +1,7 @@
 """Run each stage's self-checks under pytest.
 
 The surface and attribution stages ship their checks as standalone scripts
-(63 assertions in total, the ones the README cites). This wrapper runs each
+(62 assertions in total, the ones the README cites). This wrapper runs each
 script in its own directory and fails if any assertion fails, so `pytest`
 is the single entry point for CI.
 """

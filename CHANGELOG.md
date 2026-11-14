@@ -73,10 +73,11 @@ audit found against that run.
   adjacent. Restated as a 1.83%–4.40% sawtooth against 3.18%–3.54% under the SR3
   strip. Fixed at source in `curves/src/instruments.py` and `curves/run.py`, so the
   generated `curves/README.md` and `bootstrap_diagnostics.txt` follow.
-- Invariant-check counts corrected: surface 31 + attribution 32 = **63**
-  (`tests/test_pipeline_checks.py` said 64; the old README said 33 for attribution).
-  With the two new cross-module tests, `pytest` now reports 4 tests covering 65
-  checks.
+- Invariant-check counts corrected: surface **30** + attribution **32** = **62**
+  (`tests/test_pipeline_checks.py` said 64; the old README said 33 for attribution;
+  an intermediate pass of this audit said 63, which counted the surface script's
+  "ALL PASS" summary line as a check). With the two new cross-module tests,
+  `pytest` reports 4 collected items covering 64 assertions.
 
 ### Removed
 - Stale reference to a non-existent `greeks.py` in `attribution/src/pricing.py`; the

@@ -196,7 +196,7 @@ cd ../surface && python3 run.py        # ~5s
 cd ../attribution && python3 run.py    # ~40s
 cd .. && python3 risk/run_risk.py      # ~74s
 
-python3 -m pytest -q                   # 63 module invariants + 2 cross-module checks
+python3 -m pytest -q                   # 62 module invariants + 2 cross-module checks
 cd surface && python3 tools/smile_roughness.py   # re-derives the expiry exclusions
 ```
 
